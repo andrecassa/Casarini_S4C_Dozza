@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Simulazioni</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <style>
+        .sim-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .sim-table th, .sim-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .sim-table th {
+            background: #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .help-icon {
+            cursor: pointer;
+            color: #007bff;
+            margin-left: 5px;
+            position: relative;
+        }
+
+        .help-icon:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            background: #222;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            left: 20px;
+            top: -5px;
+            z-index: 10;
+            white-space: pre-line;
+            font-size: 0.9em;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .form-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .form-container form {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .form-container input[type="text"],
+        .form-container input[type="number"],
+        .form-container select,
+        .form-container .select2-container--default .select2-selection--multiple,
+        .form-container .select2-container--default .select2-selection--single {
+            width: 100% !important;
+            padding: 8px 12px;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            background: #fafbfc;
+            transition: border 0.2s;
+            min-height: 40px;
+        }
+
+        .form-container input[type="text"]:focus,
+        .form-container input[type="number"]:focus,
+        .form-container select:focus,
+        .form-container .select2-container--default .select2-selection--multiple:focus,
+        .form-container .select2-container--default .select2-selection--single:focus {
+            border: 1.5px solid #2d89ef;
+            outline: none;
+            background: #fff;
+        }
+    </style>
+</head>
+
+<body class="is-preload">
+
+		<!-- Header -->
+			<header id="header">
+				<div class="inner">
+					<a href="{{ url_for('mappa_page') }}" class="image dozza"><img src="{{ url_for('static', filename='images/thumbs/dozza.jpg') }}" width="100%" alt="" /></a>
+					<h1 style="font-size: 3em"><strong>Dozza Turism</strong></h1>
+					<p>Applicazione gestita dall'amministrazione pubblica del Comune di Dozza, orientata all'ottimizzazione e gestione dei flussi turistici. </p>
+				</div>
+			</header>
+
+		<!-- Main -->
+			<div id="main">
+
+				<!-- One -->
+					<section class="intro">
+            			<header>
+                            <h2>Simulazioni effettuate</h2>
+                            <p>Qui puoi visualizzare le simulazioni effettuate, avviarne di nuove o esportare i risultati.</p>
+                        </header>
+                        <div class="content">
+                            <table class="sim-table">
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Turisti</th>
+                                    <th>Azioni</th>
+                                </tr>
+                                {% for sim in simulazioni %}
+                                <tr>
+                                    <td>{{ sim.data }}</td>
+                                    <td>{{ sim.n_turisti }}</td>
+                                    <td>
+                                        <a href="{{ url_for('simulazione_dettaglio', sim_id=sim.id) }}" class="button small">Dettaglio</a>
+                                        <form method="post" action="{{ url_for('elimina_simulazione', sim_id=sim.id) }}" style="display:inline;">
+                                            <button type="submit" class="button small" onclick="return confirm('Sei sicuro di voler eliminare questa simulazione?');">Elimina</button>
+                                        </form>
+                                        <button type="button" class="button small" onclick="esportaSimulazione('{{ sim.id }}')">Esporta</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </table>
+                        </div>
+                    </section>
+<!-- Two -->
+					<section id="two">
+                        <h2>Nuova simulazione</h2>
+                        <div class="form-container">
+                            <form method="post">
+                                <div class="form-group">
+                                    <label>
+                                        Numero turisti previsti
+                                        <span class="help-icon" data-tooltip="Inserire il numero di turisti previsti">?</span>
+                                    </label>
+                                    <input type="number" name="n_turisti" required min="1">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>
+                                        Data simulazione
+                                        <span class="help-icon" data-tooltip="Formato: gg/mm/aaaa">?</span>
+                                    </label>
+                                    <input type="text" name="data" required pattern="\d{2}/\d{2}/\d{4}" placeholder="gg/mm/aaaa">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>
+                                        Parcheggi da escludere
+                                        <span class="help-icon" data-tooltip="Seleziona i parcheggi da escludere nella simulazione.">?</span>
+                                    </label>
+                                    <select name="parcheggi_esclusi[]" multiple class="select2" style="width: 100%;">
+                                        {% for p in parcheggi %}
+                                        <option value="{{ p.id }}">
+                                            {{ p.nome }} | {{ p.comune }} | capienza: {{ p.capienza }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>
+                                        Linee di trasporto da escludere
+                                        <span class="help-icon" data-tooltip="Seleziona le linee da escludere nella simulazione.">?</span>
+                                    </label>
+                                    <select name="linee_escluse[]" multiple class="select2" style="width: 100%;">
+                                        {% for l in linee %}
+                                        <option value="{{ l.id }}">
+                                            {{ l.nome_linea }} | {{ l.partenza_comune }} → {{ l.arrivo_comune }} | capienza: {{ l.capienza }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-buttons">
+                                    <button type="submit" class="button" style="width: 50%;height: 50px; font-size: 90%;">Avvia simulazione</button>
+                                    <a href="{{ url_for('mappa_page') }}" class="button">Torna alla mappa</a>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+            </div>
+
+    <!-- Script -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.select2').select2({
+                width: '100%',
+                placeholder: "Seleziona...",
+                allowClear: true
+            });
+        });
+
+        function esportaSimulazione(simId) {
+            fetch('/simulazioni/' + simId)
+                .then(response => response.json())
+                .then(data => {
+                    fetch('/simulazioni/esporta', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    })
+                        .then(resp => resp.json())
+                        .then(res => {
+                            alert('Simulazione esportata con successo! ID: ' + res.id);
+                        });
+                });
+        }
+    </script>
+</body>
+
+</html>

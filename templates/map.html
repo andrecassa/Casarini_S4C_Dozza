@@ -1,0 +1,150 @@
+<!DOCTYPE HTML>
+<html lang="it">
+
+<head>
+    <title>Mappa Parcheggi e Trasporti</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/jquery.scrolly.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/browser.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/breakpoints.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/util.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
+    <style>
+
+        img {
+  				border-radius: 8px;
+			}
+
+    </style>
+</head>
+
+<body class="is-preload">
+
+		<!-- Header -->
+			<header id="header">
+				<div class="inner">
+					<a href="{{ url_for('mappa_page') }}" class="image dozza"><img src="{{ url_for('static', filename='images/thumbs/dozza.jpg') }}" width="100%" alt="" /></a>
+					<h1 style="font-size: 3em"><strong>Dozza Turism</strong></h1>
+					<p>Applicazione gestita dall'amministrazione pubblica del Comune di Dozza, orientata all'ottimizzazione e gestione dei flussi turistici. </p>
+				</div>
+			</header>
+
+		<!-- Main -->
+			<div id="main">
+
+				<!-- One -->
+					<section class="intro">
+            			<header>
+                            <h2>Mappa Parcheggi e Trasporti</h2>
+                
+                        </header>
+
+                        <div class="content">
+                            <div id="mapid" style="width: 100%; height: 600px;"></div>
+                            <div style="margin-top: 30px; text-align: center;">
+                                
+                                <a href="{{ url_for('logout') }}" style="margin-top: 10px; align-items: center;" class="button" return false;">Logout</a>
+                                
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Two -->
+					<section id="two">
+						<h2>Funzionalità</h2>
+						<div class="row">
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/parcheggio.jpg') }}" style="width: 100%;"/>
+								<a href="/parcheggi"><h3>Gestione Parcheggi</h3></a>
+								<p>Funzione che consente di aggiungere, modificare e eliminare i parcheggi di Dozza e dintorni.</p>
+							</article>
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/autobus.jpg') }}" style="width: 100%;"/>
+								<a href="/linee"><h3>Gestione Linee Trasporto</h3></a>
+								<p>Funzione che consente di aggiungere, modificare e eliminare le linee di Trasporto di Dozza e dintorni.</p>
+							</article>
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/simulazione.jpg') }}" style="width: 100%;"/>
+								<a href="/simulazioni"><h3>Gestione Simulazioni</h3></a>
+								<p>Funzionalità che, in base al numero previsto di turisti, simula e suggerisce quali parcheggi aprire e quali linee di trasporto attivare per una gestione ottimale dei flussi.</p>
+							</article>
+							{% if is_admin %}
+                    		<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/utenti.jpg') }}" style="width: 100%;"/>
+								<a href="/admin/dashboard"><h3>Gestione Utenti</h3></a>
+								<p>Funzione che consente agli amministratori di aggiungere, eliminare e modificare gli utenti.</p>
+							</article>
+                			{% endif %}
+							</div>
+                    </section>
+
+            </div>
+
+    <script>
+        $(document).ready(function () {
+            // Inizializza la mappa
+            var map = L.map('mapid').setView([44.34, 10.8], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Chiamata al backend per ottenere dati JSON
+            $.getJSON('{{ url_for("mappa_dati") }}')
+                .done(function (data) {
+                    // Centra mappa sulla prima coordinata di parcheggio o punto medio
+                    if (data.parcheggi.length > 0) {
+                        map.setView([data.parcheggi[0].latitudine, data.parcheggi[0].longitudine], 12);
+                    }
+
+                    // Aggiungi marker per i parcheggi
+                    $.each(data.parcheggi, function (_, p) {
+                        if (p.latitudine && p.longitudine) {
+                            L.marker([p.latitudine, p.longitudine])
+                                .addTo(map)
+                                .bindPopup('<strong>' + p.nome + '</strong><br/>Posti: ' + p.capienza);
+                        }
+                    });
+
+                    // Aggiungi polilinee per le linee di trasporto
+                    $.each(data.linee_trasporto, function (_, linea) {
+                        // Conversione delle coordinate se sono stringhe con la virgola
+                        var partenzaLat = typeof linea.partenza_lat === "string" ? parseFloat(linea.partenza_lat.replace(',', '.')) : linea.partenza_lat;
+                        var partenzaLng = typeof linea.partenza_lng === "string" ? parseFloat(linea.partenza_lng.replace(',', '.')) : linea.partenza_lng;
+                        var arrivoLat = typeof linea.arrivo_lat === "string" ? parseFloat(linea.arrivo_lat.replace(',', '.')) : linea.arrivo_lat;
+                        var arrivoLng = typeof linea.arrivo_lng === "string" ? parseFloat(linea.arrivo_lng.replace(',', '.')) : linea.arrivo_lng;
+
+                        // Crea la polilinea tra partenza e arrivo
+                        var coords = [
+                            [partenzaLat, partenzaLng],
+                            [arrivoLat, arrivoLng]
+                        ];
+                        L.polyline(coords, { weight: 3, color: 'blue' })
+                            .addTo(map)
+                            .bindPopup('<strong>Linea ' + linea.nome_linea + '</strong><br/>Posti: ' + linea.capienza);
+                    });
+                })
+                .fail(function (jqxhr, textStatus, error) {
+                    console.error('Errore caricamento dati mappa:', textStatus, error);
+                });
+        });
+
+        // <button onclick="window.location.href='/gestione-parcheggi'">Gestisci Parcheggi</button>
+
+
+    </script>
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/jquery.scrolly.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/browser.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/breakpoints.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/util.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
+
+</body>
+
+</html>

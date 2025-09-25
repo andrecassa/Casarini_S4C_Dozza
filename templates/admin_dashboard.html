@@ -1,0 +1,106 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>Dashboard Amministratore</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}" />
+    <style>
+        
+        img {
+  				border-radius: 8px;
+			}
+
+    </style>
+</head>
+<body class="is-preload">
+
+    <!-- Header -->
+			<header id="header">
+				<div class="inner">
+					<a href="{{ url_for('mappa_page') }}" class="image dozza"><img src="{{ url_for('static', filename='images/thumbs/dozza.jpg') }}" width="100%" alt="" /></a>
+					<h1 style="font-size: 3em"><strong>Dozza Turism</strong></h1>
+					<p>Applicazione gestita dall'amministrazione pubblica del Comune di Dozza, orientata all'ottimizzazione e gestione dei flussi turistici. </p>
+				</div>
+			</header>
+
+		<!-- Main -->
+			<div id="main">
+
+				<!-- One -->
+					<section class="intro">
+            			<header>
+                			<h2>Aggiungi utenti al DB</h2>
+            			</header>
+                        <div class="content">
+                            <div class="admin-actions">
+                                <a href="{{ url_for('logout') }}" class="button">Logout</a>
+                                <a href="{{ url_for('mappa_page') }}" class="button">Vai alle mappe</a>
+                                <a href="{{ url_for('gestione_utenti') }}" class="button">Gestione utenti</a>
+                            </div>
+                            {% if success %}
+                                <div style="color: green; margin-bottom: 10px;">{{ success }}</div>
+                            {% endif %}
+                            <form method="post">
+                                <div class="fields">
+                                    <div class="field half">
+                                        <input type="text" name="email" placeholder="Nuova email utente" required style="width: 70%; margin-top: 10px;"/>
+                                    </div>
+                                    <div class="field half">
+                                        <input type="password" name="password" placeholder="Nuova password" required style="width: 70%; margin-top: 5px;"/>
+                                    </div>
+                                    <div class="field half">
+                                        <select name="ruolo" style="width: 70%; margin-top: 5px;">
+                                            <option value="impiegato">Impiegato</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <ul class="actions">
+                                    <li><input type="submit" value="Aggiungi utente" class="button primary" style="margin-top: 10px;"/></li>
+                                </ul>
+                            </form>
+                        </div>
+                    </section>
+            <!-- Two -->
+					<section id="two">
+						<h2>Funzionalità</h2>
+						<div class="row">
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/parcheggio.jpg') }}" style="width: 100%;"/>
+								<a href="/parcheggi"><h3>Gestione Parcheggi</h3></a>
+								<p>Funzione che consente di aggiungere, modificare e eliminare i parcheggi di Dozza e dintorni.</p>
+							</article>
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/autobus.jpg') }}" style="width: 100%;"/>
+								<a href="/linee"><h3>Gestione Linee Trasporto</h3></a>
+								<p>Funzione che consente di aggiungere, modificare e eliminare le linee di Trasporto di Dozza e dintorni.</p>
+							</article>
+							<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/simulazione.jpg') }}" style="width: 100%;"/>
+								<a href="/simulazioni"><h3>Gestione Simulazioni</h3></a>
+								<p>Funzionalità che, in base al numero previsto di turisti, simula e suggerisce quali parcheggi aprire e quali linee di trasporto attivare per una gestione ottimale dei flussi.</p>
+							</article>
+							{% if is_admin %}
+                    		<article class="col-6 col-12-xsmall work-item">
+								<img src="{{ url_for('static', filename='images/thumbs/utenti.jpg') }}" style="width: 100%;"/>
+								<a href="/admin/dashboard"><h3>Gestione Utenti</h3></a>
+								<p>Funzione che consente agli amministratori di aggiungere, eliminare e modificare gli utenti.</p>
+							</article>
+                			{% endif %}
+						</div>
+                    </section>
+            </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='assets/js/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/jquery.scrolly.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/browser.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/breakpoints.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/util.js') }}"></script>
+    <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
+
+</body>
+
+</html>

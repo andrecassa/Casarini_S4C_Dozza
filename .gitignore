@@ -1,0 +1,43 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+.venv.bak/
+
+# Logs
+*.log
+
+# -------------------------
+# PyCharm / JetBrains
+# -------------------------
+.idea/
+*.iml
+
+# -------------------------
+# Flask specific
+# -------------------------
+instance/
+*.db
+*.sqlite3
+
+# -------------------------
+# Credentials / Secrets
+# -------------------------
+credentials.json
+secret.py
+
+# -------------------------
+# OS specific
+# -------------------------
+.DS_Store
+Thumbs.db
