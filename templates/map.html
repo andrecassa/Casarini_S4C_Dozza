@@ -125,7 +125,7 @@
                         ];
                         L.polyline(coords, { weight: 3, color: 'blue' })
                             .addTo(map)
-                            .bindPopup('<strong>Linea ' + linea.nome_linea + '</strong><br/>Posti: ' + linea.capienza);
+                            .bindPopup('<strong>Linea ' + linea.nome + '</strong><br/>Posti: ' + linea.capienza);
                     });
                 })
                 .fail(function (jqxhr, textStatus, error) {

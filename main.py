@@ -5,6 +5,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from geopy.distance import geodesic
 from datetime import datetime
 import uuid
+import sqlite3
+
 from secret import secret_key
 
 app = Flask(__name__)
@@ -146,61 +148,84 @@ def mappa_page():
     return render_template('map.html', is_admin=is_admin)
 
 # Endpoint for map data: returns active parking lots and transport lines
+
 @app.route('/mappa/dati', methods=['GET'])
 @login_required
 def mappa_dati():
-    # Fetch active parking lots from Firestore
-    parks_ref = db.collection('parcheggi')
-    parks_query = parks_ref.where('attivo', '==', True).stream()
     parcheggi = []
-    for doc in parks_query:
-        data = doc.to_dict()
-        data['id'] = doc.id
-        # Conversione lat/lon se sono stringhe con la virgola
-        if isinstance(data['latitudine'], str):
-            data['latitudine'] = float(data['latitudine'].replace(',', '.'))
-        if isinstance(data['longitudine'], str):
-            data['longitudine'] = float(data['longitudine'].replace(',', '.'))
-        parcheggi.append(data)
-
-    # Fetch active transport lines from Firestore
-    lines_ref = db.collection('linee_bus')
-    parks_query = lines_ref.where('attivo', '==', True).stream()
     linee_bus = []
-    for doc in parks_query:
-        data = doc.to_dict()
-        data['id'] = doc.id
 
+    # --------------------------------------------
+    # 1) Leggi parcheggi da SQLite (parcheggi.db)
+    # --------------------------------------------
+    try:
+        conn = sqlite3.connect('parcheggi.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
 
-        # Conversione lat/lon se sono stringhe con la virgola
-        if isinstance(data['partenza_lat'], str):
-            data['partenza_lat'] = float(data['partenza_lat'].replace(',', '.'))
-        if isinstance(data['partenza_lng'], str):
-            data['partenza_lng'] = float(data['partenza_lng'].replace(',', '.'))
-        if isinstance(data['arrivo_lat'], str):
-            data['arrivo_lat'] = float(data['arrivo_lat'].replace(',', '.'))
-        if isinstance(data['arrivo_lng'], str):
-            data['arrivo_lng'] = float(data['arrivo_lng'].replace(',', '.'))
-    
-        linee_bus.append(data)
-    
+        cur.execute("SELECT * FROM parcheggi WHERE attivo = 1")
+        rows = cur.fetchall()
 
-    
-    #print('parcheggi:', parcheggi)
-    #print()
-    #print('linee_bus:', linee_bus)
+        for row in rows:
+            data = dict(row)
+            # conversione lat/lon se sono stringhe con virgola
+            if isinstance(data['latitudine'], str):
+                data['latitudine'] = float(data['latitudine'].replace(',', '.'))
+            if isinstance(data['longitudine'], str):
+                data['longitudine'] = float(data['longitudine'].replace(',', '.'))
+            parcheggi.append(data)
 
-    # Return combined data as JSON
+    except Exception as e:
+        print("Errore lettura parcheggi da SQLite:", e)
+    finally:
+        conn.close()
 
+    # ------------------------------------
+    # 2) Leggi linee da SQLite (linee.db)
+    # ------------------------------------
+    try:
+        conn = sqlite3.connect('linee.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM linee WHERE attiva = 1")
+        rows = cur.fetchall()
+
+        for row in rows:
+            data = dict(row)
+            # conversione lat/lon se sono stringhe con virgola
+            if isinstance(data['partenza_lat'], str):
+                data['partenza_lat'] = float(data['partenza_lat'].replace(',', '.'))
+            if isinstance(data['partenza_lng'], str):
+                data['partenza_lng'] = float(data['partenza_lng'].replace(',', '.'))
+            if isinstance(data['arrivo_lat'], str):
+                data['arrivo_lat'] = float(data['arrivo_lat'].replace(',', '.'))
+            if isinstance(data['arrivo_lng'], str):
+                data['arrivo_lng'] = float(data['arrivo_lng'].replace(',', '.'))
+            linee_bus.append(data)
+
+    except Exception as e:
+        print("Errore lettura linee da SQLite:", e)
+    finally:
+        conn.close()
+
+    # -----------------------------
+    # 3) Ritorna JSON combinato
+    # -----------------------------
     return jsonify({
         'parcheggi': parcheggi,
         'linee_trasporto': linee_bus
     })
 
 
+
 #---------------- PARCHEGGI -----------------
 
-PARCHEGGI_COLLECTION = 'parcheggi'
+PARCHEGGI_DB = "parcheggi.db"
+
+def get_db_connection():
+    conn = sqlite3.connect(PARCHEGGI_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # Interfaccia per gestire i parcheggi
 @app.route('/parcheggi_page')
@@ -208,30 +233,28 @@ PARCHEGGI_COLLECTION = 'parcheggi'
 def parcheggi_page():
     return render_template('parcheggi.html')
 
-# GET tutti i parcheggi
+# GET tutti i parcheggi (redirect alla pagina)
 @app.route('/parcheggi', methods=['GET'])
 def parcheggi_redirect():
     return redirect(url_for('parcheggi_page'))
 
-# Restituisce i dati in JSON, usata solo in JS; recupera i dati da Firestore
+# Restituisce tutti i parcheggi in JSON
 @app.route('/api/parcheggi', methods=['GET'])
 def get_parcheggi():
-    docs = db.collection(PARCHEGGI_COLLECTION).stream()
-    parcheggi = []
-    for doc in docs:
-        p = doc.to_dict()
-        p['id'] = doc.id
-        parcheggi.append(p)
+    conn = get_db_connection()
+    rows = conn.execute("SELECT * FROM parcheggi").fetchall()
+    conn.close()
+    parcheggi = [dict(row) for row in rows]
     return jsonify(parcheggi)
 
-#GET un parcheggio specifico
+# GET un parcheggio specifico
 @app.route('/api/parcheggi/<id>', methods=['GET'])
 def get_parcheggio(id):
-    doc = db.collection(PARCHEGGI_COLLECTION).document(id).get()
-    if doc.exists:
-        parcheggio = doc.to_dict()
-        parcheggio['id'] = doc.id
-        return jsonify(parcheggio)
+    conn = get_db_connection()
+    row = conn.execute("SELECT * FROM parcheggi WHERE id = ?", (id,)).fetchone()
+    conn.close()
+    if row:
+        return jsonify(dict(row))
     else:
         return jsonify({'error': 'Parcheggio non trovato'}), 404
 
@@ -239,79 +262,184 @@ def get_parcheggio(id):
 @app.route('/api/parcheggi', methods=['POST'])
 def add_parcheggio():
     data = request.json
-    parcheggio_id = str(uuid.uuid4())
-    db.collection(PARCHEGGI_COLLECTION).document(parcheggio_id).set(data)
-    return jsonify({"id": parcheggio_id}), 201
+    try:
+        nome = str(data.get("nome", ""))
+        comune = str(data.get("comune", ""))
+        capienza = int(data.get("capienza", 0))
+        attivo = 1 if data.get("attivo") in [True, "true", "1", 1] else 0
+        latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
+        longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
+
+        conn = sqlite3.connect("parcheggi.db")
+        conn.execute(
+            "INSERT INTO parcheggi (nome, comune, capienza, attivo, latitudine, longitudine) VALUES (?, ?, ?, ?, ?, ?)",
+            (nome, comune, capienza, attivo, latitudine, longitudine),
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True}), 201
+
+    except Exception as e:
+        print("Errore in add_parcheggio:", e, " -- Dati ricevuti:", data)
+        return jsonify({"error": str(e)}), 400
+
 
 # PUT modifica parcheggio
 @app.route('/api/parcheggi/<id>', methods=['PUT'])
 def update_parcheggio(id):
     data = request.json
-    db.collection(PARCHEGGI_COLLECTION).document(id).update(data)
-    return jsonify({"success": True})
+    try:
+        nome = str(data.get("nome", ""))
+        comune = str(data.get("comune", ""))
+        capienza = int(data.get("capienza", 0))
+        attivo = 1 if data.get("attivo") in [True, "true", "1", 1] else 0
+        latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
+        longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
+
+        conn = sqlite3.connect("parcheggi.db")
+        conn.execute(
+            "UPDATE parcheggi SET nome=?, comune=?, capienza=?, attivo=?, latitudine=?, longitudine=? WHERE id=?",
+            (nome, comune, capienza, attivo, latitudine, longitudine, int(id))
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+    except Exception as e:
+        print("Errore in update_parcheggio:", e, "-- dati ricevuti:", data)
+        return jsonify({"error": str(e)}), 400
 
 # DELETE parcheggio
 @app.route('/api/parcheggi/<id>', methods=['DELETE'])
 def delete_parcheggio(id):
-    db.collection(PARCHEGGI_COLLECTION).document(id).delete()
+    conn = get_db_connection()
+    conn.execute("DELETE FROM parcheggi WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
     return jsonify({"success": True})
 
 
-#---------------- LINEE BUS -----------------
+# ---------------- LINEE BUS -----------------
 
-LINEE_COLLECTION = 'linee_bus'
+LINEE_DB = "linee.db"
 
+# Pagina principale (HTML)
 @app.route('/linee_page')
 @login_required
 def linee_page():
     return render_template('linee.html')
 
-# GET tutte le linee (redirect alla pagina)
+
+# Redirect per /linee → /linee_page
 @app.route('/linee', methods=['GET'])
 def linee_redirect():
     return redirect(url_for('linee_page'))
 
-# Restituisce i dati in JSON, usata solo in JS
+
+# GET tutte le linee (JSON API)
 @app.route('/api/linee', methods=['GET'])
 def get_linee():
-    docs = db.collection(LINEE_COLLECTION).stream()
-    linee = []
-    for doc in docs:
-        l = doc.to_dict()
-        l['id'] = doc.id
-        linee.append(l)
+    conn = sqlite3.connect(LINEE_DB)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM linee").fetchall()
+    conn.close()
+    linee = [dict(row) for row in rows]
     return jsonify(linee)
+
 
 # GET una singola linea
 @app.route('/api/linee/<id>', methods=['GET'])
 def get_linea(id):
-    doc = db.collection(LINEE_COLLECTION).document(id).get()
-    if doc.exists:
-        linea = doc.to_dict()
-        linea['id'] = doc.id
-        return jsonify(linea)
-    else:
-        return jsonify({'error': 'Linea non trovata'}), 404
+    conn = sqlite3.connect(LINEE_DB)
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM linee WHERE id=?", (int(id),)).fetchone()
+    conn.close()
+    if row:
+        return jsonify(dict(row))
+    return jsonify({"error": "Linea non trovata"}), 404
+
 
 # POST nuova linea
 @app.route('/api/linee', methods=['POST'])
 def add_linea():
     data = request.json
-    linea_id = str(uuid.uuid4())
-    db.collection(LINEE_COLLECTION).document(linea_id).set(data)
-    return jsonify({"id": linea_id}), 201
+    try:
+        nome = str(data.get("nome", ""))
+        comune_partenza = str(data.get("comune_partenza", ""))
+        partenza_lat = float(str(data.get("partenza_lat", "0")).replace(",", "."))
+        partenza_lng = float(str(data.get("partenza_lng", "0")).replace(",", "."))
+        comune_arrivo = str(data.get("comune_arrivo", ""))
+        arrivo_lat = float(str(data.get("arrivo_lat", "0")).replace(",", "."))
+        arrivo_lng = float(str(data.get("arrivo_lng", "0")).replace(",", "."))
+        capienza = int(data.get("capienza", 0))
+        attiva = 1 if data.get("attiva") in [True, "true", "1", 1] else 0
+        sabato = 1 if data.get("sabato") in [True, "true", "1", 1] else 0
+        domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
+        frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
+
+        conn = sqlite3.connect(LINEE_DB)
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO linee 
+               (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
+                arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
+             arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera)
+        )
+        conn.commit()
+        new_id = cur.lastrowid
+        conn.close()
+        return jsonify({"id": new_id}), 201
+
+    except Exception as e:
+        print("Errore in add_linea:", e, "-- dati:", data)
+        return jsonify({"error": str(e)}), 400
+
 
 # PUT modifica linea
 @app.route('/api/linee/<id>', methods=['PUT'])
 def update_linea(id):
     data = request.json
-    db.collection(LINEE_COLLECTION).document(id).update(data)
-    return jsonify({"success": True})
+    try:
+        nome = str(data.get("nome", ""))
+        comune_partenza = str(data.get("comune_partenza", ""))
+        partenza_lat = float(str(data.get("partenza_lat", "0")).replace(",", "."))
+        partenza_lng = float(str(data.get("partenza_lng", "0")).replace(",", "."))
+        comune_arrivo = str(data.get("comune_arrivo", ""))
+        arrivo_lat = float(str(data.get("arrivo_lat", "0")).replace(",", "."))
+        arrivo_lng = float(str(data.get("arrivo_lng", "0")).replace(",", "."))
+        capienza = int(data.get("capienza", 0))
+        attiva = 1 if data.get("attiva") in [True, "true", "1", 1] else 0
+        sabato = 1 if data.get("sabato") in [True, "true", "1", 1] else 0
+        domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
+        frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
+
+        conn = sqlite3.connect(LINEE_DB)
+        conn.execute(
+            """UPDATE linee 
+               SET nome=?, comune_partenza=?, partenza_lat=?, partenza_lng=?, 
+                   comune_arrivo=?, arrivo_lat=?, arrivo_lng=?, capienza=?, attiva=?, 
+                   sabato=?, domenica=?, frequenza_giornaliera=? 
+               WHERE id=?""",
+            (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
+             arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera, int(id))
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True})
+
+    except Exception as e:
+        print("Errore in update_linea:", e, "-- dati:", data)
+        return jsonify({"error": str(e)}), 400
+
 
 # DELETE linea
 @app.route('/api/linee/<id>', methods=['DELETE'])
 def delete_linea(id):
-    db.collection(LINEE_COLLECTION).document(id).delete()
+    conn = sqlite3.connect(LINEE_DB)
+    conn.execute("DELETE FROM linee WHERE id=?", (int(id),))
+    conn.commit()
+    conn.close()
     return jsonify({"success": True})
 
 #---------------- SIMULAZIONI ---------------

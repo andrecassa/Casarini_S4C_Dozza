@@ -117,26 +117,26 @@
             </header>
             <div class="content">
                 <div id="aggiungiForm" style="width: 80%; margin: 20px auto; border: 1px solid #ccc; padding: 15px; border-radius: 10px; background: #f9f9f9;text-align: center;">
-                    <input type="text" id="nome_linea" placeholder="Nome linea" />
-                    <input type="text" id="partenza_comune" placeholder="Comune partenza" />
+                    <input type="text" id="nome" placeholder="Nome linea" />
+                    <input type="text" id="comune_partenza" placeholder="Comune partenza" />
                     <input type="text" id="partenza_lat" placeholder="Latitudine partenza" />
                     <input type="text" id="partenza_lng" placeholder="Longitudine partenza" />
-                    <input type="text" id="arrivo_comune" placeholder="Comune arrivo" />
+                    <input type="text" id="comune_arrivo" placeholder="Comune arrivo" />
                     <input type="text" id="arrivo_lat" placeholder="Latitudine arrivo" />
                     <input type="text" id="arrivo_lng" placeholder="Longitudine arrivo" />
                     <input type="number" id="capienza" placeholder="Capienza" min="0" style="left: margin 0px;"/>
                     <input type="number" id="frequenza_giornaliera" placeholder="Frequenza Giornaliera" min="0" step="any" />
-                    <select id="attivo">
+                    <select id="attiva">
                         <option value="true">Attiva</option>
                         <option value="false">Non attiva</option>
                     </select>
                     <select id="sabato">
-                        <option value="true">Sabato attivo</option>
-                        <option value="false">Sabato non attivo</option>
+                        <option value="true">Sabato attiva</option>
+                        <option value="false">Sabato non attiva</option>
                     </select>
                     <select id="domenica">
-                        <option value="true">Domenica attivo</option>
-                        <option value="false">Domenica non attivo</option>
+                        <option value="true">Domenica attiva</option>
+                        <option value="false">Domenica non attiva</option>
                     </select>
                     <a href="#" style="margin-top: 10px; align-items: center;" class="button" onclick="aggiungiLinea(); return false;">Inserisci</a>
 
@@ -169,8 +169,8 @@
             <table id="tabellaLineeBus">
                 <thead>
                     <tr>
-                        <th style="width: 115px">Nome linea</th>
-                        <th>Comune partenza</th>
+                        <th style="width: 80px">Nome linea</th>
+                        <th style="width: 115px">Comune partenza</th>
                         <th style="width: 110px">Comune arrivo</th>
                         <th style="width: 90px;">Capienza</th>
                         <th style="width: 115px">Attiva</th>
@@ -258,7 +258,7 @@ async function caricaLinee() {
         const nomeTd = document.createElement('td');
         const nomeInput = document.createElement('input');
         nomeInput.type = 'text';
-        nomeInput.value = l.nome_linea || '';
+        nomeInput.value = l.nome || '';
         nomeTd.appendChild(nomeInput);
         tr.appendChild(nomeTd);
 
@@ -266,7 +266,7 @@ async function caricaLinee() {
         const partenzaComuneTd = document.createElement('td');
         const partenzaComuneInput = document.createElement('input');
         partenzaComuneInput.type = 'text';
-        partenzaComuneInput.value = l.partenza_comune || '';
+        partenzaComuneInput.value = l.comune_partenza || '';
         partenzaComuneTd.appendChild(partenzaComuneInput);
         tr.appendChild(partenzaComuneTd);
 
@@ -274,7 +274,7 @@ async function caricaLinee() {
         const arrivoComuneTd = document.createElement('td');
         const arrivoComuneInput = document.createElement('input');
         arrivoComuneInput.type = 'text';
-        arrivoComuneInput.value = l.arrivo_comune || '';
+        arrivoComuneInput.value = l.comune_arrivo || '';
         arrivoComuneTd.appendChild(arrivoComuneInput);
         tr.appendChild(arrivoComuneTd);
 
@@ -296,7 +296,7 @@ async function caricaLinee() {
             opt.textContent = val === 'true' ? 'Attiva' : 'Non attiva';
             attivaSelect.appendChild(opt);
         });
-        attivaSelect.value = l.attivo ? 'true' : 'false';
+        attivaSelect.value = l.attiva ? 'true' : 'false';
         attivaTd.appendChild(attivaSelect);
         tr.appendChild(attivaTd);
 
@@ -306,7 +306,7 @@ async function caricaLinee() {
         ['true','false'].forEach(val => {
             const opt = document.createElement('option');
             opt.value = val;
-            opt.textContent = val === 'true' ? 'Attivo' : 'Non attivo';
+            opt.textContent = val === 'true' ? 'attiva' : 'Non attiva';
             sabatoSelect.appendChild(opt);
         });
         sabatoSelect.value = l.sabato ? 'true' : 'false';
@@ -319,7 +319,7 @@ async function caricaLinee() {
         ['true','false'].forEach(val => {
             const opt = document.createElement('option');
             opt.value = val;
-            opt.textContent = val === 'true' ? 'Attivo' : 'Non attivo';
+            opt.textContent = val === 'true' ? 'attiva' : 'Non attiva';
             domenicaSelect.appendChild(opt);
         });
         domenicaSelect.value = l.domenica ? 'true' : 'false';
@@ -350,15 +350,15 @@ async function caricaLinee() {
         btnSalva.textContent = 'Salva';
         btnSalva.onclick = async () => {
             await salvaLinea(l.id, {
-                nome_linea: nomeInput.value,
-                partenza_comune: partenzaComuneInput.value,
+                nome: nomeInput.value,
+                comune_partenza: partenzaComuneInput.value,
                 partenza_lat: l.partenza_lat,
                 partenza_lng: l.partenza_lng,
-                arrivo_comune: arrivoComuneInput.value,
+                comune_arrivo: arrivoComuneInput.value,
                 arrivo_lat: l.arrivo_lat,
                 arrivo_lng: l.arrivo_lng,
                 capienza: parseInt(capienzaInput.value),
-                attivo: attivaSelect.value === 'true',
+                attiva: attivaSelect.value === 'true',
                 sabato: sabatoSelect.value === 'true',
                 domenica: domenicaSelect.value === 'true',
                 frequenza_giornaliera: parseFloat(freqInput.value.replace(',', '.'))
@@ -370,7 +370,7 @@ async function caricaLinee() {
         const btnElimina = document.createElement('button');
         btnElimina.textContent = 'Elimina';
         btnElimina.onclick = async () => {
-            const conferma = await customConfirm(`Sei sicuro di voler eliminare la linea "${l.nome_linea}"?`);
+            const conferma = await customConfirm(`Sei sicuro di voler eliminare la linea "${l.nome}"?`);
             if (conferma) {
                 await eliminaLinea(l.id);
                 showPermMessage('Linea eliminata!', 'error');
@@ -392,15 +392,15 @@ async function mostraDettagli(id, tr) {
             return;
         }
         const data = await res.json();
-        document.getElementById('dettNomeLinea').textContent = data.nome_linea;
-        document.getElementById('dettPartenza').textContent = data.partenza_comune;
+        document.getElementById('dettNomeLinea').textContent = data.nome;
+        document.getElementById('dettPartenza').textContent = data.comune_partenza;
         document.getElementById('dettPartenzaLat').textContent = data.partenza_lat;
         document.getElementById('dettPartenzaLng').textContent = data.partenza_lng;
-        document.getElementById('dettArrivo').textContent = data.arrivo_comune;
+        document.getElementById('dettArrivo').textContent = data.comune_arrivo;
         document.getElementById('dettArrivoLat').textContent = data.arrivo_lat;
         document.getElementById('dettArrivoLng').textContent = data.arrivo_lng;
         document.getElementById('dettCapienza').textContent = data.capienza;
-        document.getElementById('dettAttiva').textContent = data.attivo;
+        document.getElementById('dettAttiva').textContent = data.attiva;
         document.getElementById('dettSabato').textContent = data.sabato;
         document.getElementById('dettDomenica').textContent = data.domenica;
         document.getElementById('dettFrequenza').textContent = data.frequenza_giornaliera;
@@ -448,21 +448,21 @@ async function eliminaLinea(id) {
 
 // Aggiungi linea (POST)
 async function aggiungiLinea() {
-    const nome_linea = document.getElementById('nome_linea').value.trim();
-    const partenza_comune = document.getElementById('partenza_comune').value.trim();
+    const nome = document.getElementById('nome').value.trim();
+    const comune_partenza = document.getElementById('comune_partenza').value.trim();
     const partenza_lat = document.getElementById('partenza_lat').value.trim();
     const partenza_lng = document.getElementById('partenza_lng').value.trim();
-    const arrivo_comune = document.getElementById('arrivo_comune').value.trim();
+    const comune_arrivo = document.getElementById('comune_arrivo').value.trim();
     const arrivo_lat = document.getElementById('arrivo_lat').value.trim();
     const arrivo_lng = document.getElementById('arrivo_lng').value.trim();
     const capienza = parseInt(document.getElementById('capienza').value);
-    const attivo = document.getElementById('attivo').value === 'true';
+    const attiva = document.getElementById('attiva').value === 'true';
     const sabato = document.getElementById('sabato').value === 'true';
     const domenica = document.getElementById('domenica').value === 'true';
     const frequenza_giornaliera = parseFloat(document.getElementById('frequenza_giornaliera').value.replace(',', '.'));
 
-    if (!nome_linea || !partenza_comune || !partenza_lat || !partenza_lng ||
-        !arrivo_comune || !arrivo_lat || !arrivo_lng ||
+    if (!nome || !comune_partenza || !partenza_lat || !partenza_lng ||
+        !comune_arrivo || !arrivo_lat || !arrivo_lng ||
         isNaN(capienza) || isNaN(frequenza_giornaliera)) {
         showPermMessage('Inserisci tutti i dati correttamente', 'error');
         return;
@@ -473,15 +473,15 @@ async function aggiungiLinea() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                nome_linea,
-                partenza_comune,
+                nome,
+                comune_partenza,
                 partenza_lat,
                 partenza_lng,
-                arrivo_comune,
+                comune_arrivo,
                 arrivo_lat,
                 arrivo_lng,
                 capienza,
-                attivo,
+                attiva,
                 sabato,
                 domenica,
                 frequenza_giornaliera
@@ -491,15 +491,15 @@ async function aggiungiLinea() {
             await caricaLinee();
             showPermMessage('Linea aggiunta!');
             // Reset form
-            document.getElementById('nome_linea').value = '';
-            document.getElementById('partenza_comune').value = '';
+            document.getElementById('nome').value = '';
+            document.getElementById('comune_partenza').value = '';
             document.getElementById('partenza_lat').value = '';
             document.getElementById('partenza_lng').value = '';
-            document.getElementById('arrivo_comune').value = '';
+            document.getElementById('comune_arrivo').value = '';
             document.getElementById('arrivo_lat').value = '';
             document.getElementById('arrivo_lng').value = '';
             document.getElementById('capienza').value = '';
-            document.getElementById('attivo').value = 'true';
+            document.getElementById('attiva').value = 'true';
             document.getElementById('sabato').value = 'true';
             document.getElementById('domenica').value = 'true';
             document.getElementById('frequenza_giornaliera').value = '';
