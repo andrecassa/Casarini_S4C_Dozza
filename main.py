@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, json
 from flask_login import LoginManager, current_user, login_user, logout_user, login_required, UserMixin
 from google.cloud import firestore
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -445,62 +445,93 @@ def delete_linea(id):
 #---------------- SIMULAZIONI ---------------
 
 
+# ---------------- SIMULAZIONI ---------------
+
+SIMULAZIONI_DB = "simulazioni.db"
+
+def get_sim_conn():
+    """Connessione sicura al DB delle simulazioni"""
+    conn = sqlite3.connect(SIMULAZIONI_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids):
-    # Recupera tutti i parcheggi e linee dal DB
-    all_parcheggi_docs = list(db.collection('parcheggi').stream())
-    all_linee_docs = list(db.collection('linee_bus').stream())
+    """Esegue la simulazione e salva i risultati nel DB SQLite"""
+    # --- Recupera parcheggi ---
+    conn_p = sqlite3.connect("parcheggi.db")
+    conn_p.row_factory = sqlite3.Row
+    parcheggi = [dict(r) for r in conn_p.execute("SELECT * FROM parcheggi").fetchall()]
+    conn_p.close()
 
-    # Crea le liste dei parcheggi e delle linee escluse
-    parcheggi_esclusi = []
-    for doc in all_parcheggi_docs:
-        if doc.id in parcheggi_esclusi_ids:
-            p = doc.to_dict()
-            p['id'] = doc.id
-            parcheggi_esclusi.append(p)
+    # --- Recupera linee ---
+    conn_l = sqlite3.connect("linee.db")
+    conn_l.row_factory = sqlite3.Row
+    linee = [dict(r) for r in conn_l.execute("SELECT * FROM linee").fetchall()]
+    conn_l.close()
 
-    linee_escluse = []
-    for doc in all_linee_docs:
-        if doc.id in linee_escluse_ids:
-            l = doc.to_dict()
-            l['id'] = doc.id
-            linee_escluse.append(l)
+    # --- Filtra esclusi ---
+    parcheggi_esclusi = [p for p in parcheggi if str(p["id"]) in parcheggi_esclusi_ids]
+    linee_escluse = [l for l in linee if str(l["id"]) in linee_escluse_ids]
+    parcheggi = [p for p in parcheggi if str(p["id"]) not in parcheggi_esclusi_ids]
+    linee = [l for l in linee if str(l["id"]) not in linee_escluse_ids]
 
-    # Filtra solo quelli NON esclusi
-    parcheggi = []
-    for doc in all_parcheggi_docs:
-        if doc.id not in parcheggi_esclusi_ids:
-            p = doc.to_dict()
-            p['id'] = doc.id
-            parcheggi.append(p)
-
-    linee = []
-    for doc in all_linee_docs:
-        if doc.id not in linee_escluse_ids:
-            l = doc.to_dict()
-            l['id'] = doc.id
-            linee.append(l)
-
-    # Esegui la simulazione
+    # --- Esegui simulazione ---
     output = ottimizza_risorse(parcheggi, linee, n_turisti)
-    risultato = output['risultato']
-    parcheggi_usati = output['parcheggi_usati']
-    linee_usate = output['linee_usate']
+    risultato = output["risultato"]
+    parcheggi_usati = output["parcheggi_usati"]
+    linee_usate = output["linee_usate"]
 
-    #salva la simulazione nel database
     sim_id = str(uuid.uuid4())
-    sim_doc = {
-        'id': sim_id,
-        'data': data,
-        'n_turisti': n_turisti,
-        'parcheggi': parcheggi_usati,  # solo quelli usati
-        'linee': linee_usate,          # solo quelle usate
-        'risultato': risultato,
-        'timestamp': datetime.now(),
-        'parcheggi_esclusi': parcheggi_esclusi,  # lista di dict dei parcheggi esclusi
-        'linee_escluse': linee_escluse,          # lista di dict delle linee escluse
+    timestamp = datetime.now().isoformat()
+
+    # --- Salva in DB simulazioni ---
+    try:
+        conn = get_sim_conn()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS simulazioni (
+                id TEXT PRIMARY KEY,
+                data TEXT,
+                n_turisti INTEGER,
+                risultato TEXT,
+                parcheggi_usati TEXT,
+                linee_usate TEXT,
+                parcheggi_esclusi TEXT,
+                linee_escluse TEXT,
+                timestamp TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO simulazioni (id, data, n_turisti, risultato, parcheggi_usati, linee_usate,
+                                     parcheggi_esclusi, linee_escluse, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            sim_id, data, n_turisti,
+            json.dumps(risultato),
+            json.dumps(parcheggi_usati),
+            json.dumps(linee_usate),
+            json.dumps(parcheggi_esclusi),
+            json.dumps(linee_escluse),
+            timestamp
+        ))
+        conn.commit()
+    except Exception as e:
+        print("❌ Errore durante il salvataggio simulazione:", e)
+    finally:
+        conn.close()
+
+    return sim_id, {
+        "id": sim_id,
+        "data": data,
+        "n_turisti": n_turisti,
+        "risultato": risultato,
+        "parcheggi_usati": parcheggi_usati,
+        "linee_usate": linee_usate,
+        "parcheggi_esclusi": parcheggi_esclusi,
+        "linee_escluse": linee_escluse,
+        "timestamp": timestamp
     }
-    db.collection('simulazioni').document(sim_id).set(sim_doc)
-    return sim_id, sim_doc
+
 
 
 @app.route('/api/sim', methods=['POST'])
@@ -516,50 +547,73 @@ def api_simulazione():
     sim_id, sim_doc = run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids)
     return jsonify({'id': sim_id, 'simulazione': sim_doc}), 201
 
-
-@app.route('/simulazioni', methods=['GET', 'POST'])
+@app.route('/simulazioni', methods=['GET'])
 @login_required
 def simulazioni():
-    if request.method == 'POST':
-        data = request.form.get('data')
-        n_turisti = int(request.form.get('n_turisti'))
+    conn = get_sim_conn()
+    rows = conn.execute("SELECT * FROM simulazioni ORDER BY timestamp DESC").fetchall()
+    conn.close()
+    simulazioni = [dict(r) for r in rows]
 
-        # Ottieni gli ID selezionati dal form (da escludere)
-        parcheggi_esclusi_ids = request.form.getlist('parcheggi_esclusi[]')
-        # Ottieni gli ID delle linee escluse
-        linee_escluse_ids = request.form.getlist('linee_escluse[]')
+    return render_template('simulazioni.html', simulazioni=simulazioni)
 
-        sim_id, sim_doc = run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids)
-        return redirect(url_for('simulazione_dettaglio', sim_id=sim_id))
+@app.route("/api/simulazioni", methods=["POST"])
+def api_simulazioni():
+    data = request.get_json()
+    n_turisti = int(data.get('n_turisti', 0))
+    data_sim = data.get('data', "")
+    parcheggi_esclusi = data.get('parcheggi_esclusi', [])
+    linee_escluse = data.get('linee_escluse', [])
 
-    # GET: mostra elenco simulazioni e tutti i parcheggi/linee per il form
-    simulazioni = [doc.to_dict() for doc in db.collection('simulazioni').stream()]
-    parcheggi = [doc.to_dict() | {'id': doc.id} for doc in db.collection('parcheggi').stream()]
-    linee = [doc.to_dict() | {'id': doc.id} for doc in db.collection('linee_bus').stream()]
-    return render_template('simulazioni.html', simulazioni=simulazioni, parcheggi=parcheggi, linee=linee)
-
+    # Ottieni dati da parcheggi.db e linee.db
+    # Esegui ottimizza_risorse(...)
+    # Salva in simulazioni.db con commit()
 
 @app.route('/simulazioni/<sim_id>')
+@app.route('/simulazioni/<sim_id>')
 def simulazione_dettaglio(sim_id):
-    #Dettaglio di una singola simulazione
-    doc = db.collection('simulazioni').document(sim_id).get()
-    if not doc.exists:
+    conn = get_sim_conn()
+    row = conn.execute("SELECT * FROM simulazioni WHERE id=?", (sim_id,)).fetchone()
+    conn.close()
+    if not row:
         return "Simulazione non trovata", 404
-    simulazione = doc.to_dict()
 
-    # Assicura che i campi siano almeno inizializzati come vuoti
-    simulazione['parcheggi'] = simulazione.get('parcheggi', [])
-    simulazione['linee'] = simulazione.get('linee', [])
-    simulazione['risultato'] = simulazione.get('risultato', {})
+    sim = dict(row)
 
-    return render_template('simulazioni_dettaglio.html', simulazione=simulazione)
+    # Campi JSON → Python
+    for key in ["risultato", "parcheggi_usati", "linee_usate", "parcheggi_esclusi", "linee_escluse"]:
+        try:
+            sim[key] = json.loads(sim.get(key, "[]") or "[]")
+        except Exception:
+            sim[key] = []
 
+    # Rinomina per coerenza con il template
+    simulazione = {
+        "id": sim["id"],
+        "data": sim["data"],
+        "n_turisti": sim["n_turisti"],
+        "parcheggi": sim["parcheggi_usati"],
+        "linee": sim["linee_usate"],
+        "parcheggi_esclusi": sim["parcheggi_esclusi"],
+        "linee_escluse": sim["linee_escluse"]
+    }
+
+    return render_template("simulazioni_dettaglio.html", simulazione=simulazione)
+
+
+
+# 🔹 Elimina simulazione
 @app.route('/simulazioni/elimina/<sim_id>', methods=['POST'])
 @login_required
 def elimina_simulazione(sim_id):
-    db.collection('simulazioni').document(sim_id).delete()
+    conn = get_sim_conn()
+    conn.execute("DELETE FROM simulazioni WHERE id=?", (sim_id,))
+    conn.commit()
+    conn.close()
     return redirect(url_for('simulazioni'))
-    
+
+
+
 @app.route('/simulazioni/esporta', methods=['POST'])
 def simulazioni_esporta():
     # Ricevi i dati della simulazione da esportare
@@ -568,53 +622,47 @@ def simulazioni_esporta():
     db.collection('simulazioni').document(sim_id).set(sim_data) # Salva la simulazione nel database
     return jsonify({'status': 'ok', 'id': sim_id})
 
-# Funzione di ottimizzazione (stub da implementare)
-def ottimizza_risorse(parcheggi, linee, n_turisti):
-    # TODO: implementa la logica di ottimizzazione
-    # Esempio: assegna turisti ai parcheggi in modo uniforme
-    risultato = {}
-    if parcheggi:
-        per_parcheggio = n_turisti // len(parcheggi) #  turisti per parcheggio
-        for p in parcheggi:
-            risultato[p['nome']] = min(per_parcheggio, p.get('capienza', 0)) # assicurati di non superare la capienza
-    return risultato
 
 
-def sono_vicini(lat1, lng1, lat2, lng2, soglia_m=1000):
-    """Restituisce True se la distanza tra i due punti è minore della soglia (in metri)."""
-    return geodesic((lat1, lng1), (lat2, lng2)).meters <= soglia_m
+
+from geopy.distance import geodesic
 
 DOZZA_COORDS = (44.3511, 11.6519)
 
+def to_float(val):
+    if isinstance(val, (float, int)):
+        return float(val)
+    try:
+        return float(str(val).replace(',', '.'))
+    except:
+        return 0.0
+
+def sono_vicini(lat1, lng1, lat2, lng2, soglia_m=1000):
+    """True se la distanza tra due punti è minore della soglia in metri."""
+    return geodesic((lat1, lng1), (lat2, lng2)).meters <= soglia_m
+
+
 def ottimizza_risorse(parcheggi, linee, n_turisti):
     risultato = {}
-    assegnati = 0 # Numero di turisti già assegnati, inizialmente 0
+    assegnati = 0
     parcheggi_usati = []
     linee_usate = set()
 
-    # Mappa parcheggio_id → linee collegate
+    # Mappa: parcheggio_id → linee collegate
     linee_per_parcheggio = {}
     for p in parcheggi:
-        lat_p = float(str(p['latitudine']).replace(',', '.'))
-        lng_p = float(str(p['longitudine']).replace(',', '.'))
+        lat_p, lng_p = to_float(p['latitudine']), to_float(p['longitudine'])
         for linea in linee:
-            lat_l = float(str(linea['partenza_lat']).replace(',', '.'))
-            lng_l = float(str(linea['partenza_lng']).replace(',', '.'))
+            lat_l, lng_l = to_float(linea['partenza_lat']), to_float(linea['partenza_lng'])
             if sono_vicini(lat_p, lng_p, lat_l, lng_l, soglia_m=1000):
                 linee_per_parcheggio.setdefault(p['id'], []).append(linea)
 
-    # Calcola distanza da Dozza per ogni parcheggio
-    parcheggi_distanze = []
-    for p in parcheggi:
-        coords = (
-            float(str(p['latitudine']).replace(',', '.')),
-            float(str(p['longitudine']).replace(',', '.'))
-        )
-        distanza = geodesic(coords, DOZZA_COORDS).meters
-        parcheggi_distanze.append((p, distanza))
-
-    # Ordina parcheggi dal più vicino
-    parcheggi_distanze.sort(key=lambda x: x[1])
+    # Calcola distanza di ogni parcheggio da Dozza
+    parcheggi_distanze = [
+        (p, geodesic((to_float(p['latitudine']), to_float(p['longitudine'])), DOZZA_COORDS).meters)
+        for p in parcheggi
+    ]
+    parcheggi_distanze.sort(key=lambda x: x[1])  # Ordina per distanza crescente
 
     for parcheggio, distanza in parcheggi_distanze:
         if assegnati >= n_turisti:
@@ -628,50 +676,42 @@ def ottimizza_risorse(parcheggi, linee, n_turisti):
         turisti_assegnati_parcheggio = 0
         linee_usate_parcheggio = []
 
-        # Trova tutte le linee associate ordinate per distanza arrivo
-        linee_assoc = linee_per_parcheggio.get(parcheggio['id'], [])
-        linee_assoc = sorted(linee_assoc, key=lambda l: geodesic(
-            (float(str(l['arrivo_lat']).replace(',', '.')), float(str(l['arrivo_lng']).replace(',', '.'))), DOZZA_COORDS).meters)
+        # Linee associate ordinate per vicinanza dell’arrivo a Dozza
+        linee_assoc = sorted(
+            linee_per_parcheggio.get(parcheggio['id'], []),
+            key=lambda l: geodesic(
+                (to_float(l['arrivo_lat']), to_float(l['arrivo_lng'])),
+                DOZZA_COORDS
+            ).meters
+        )
 
         for linea in linee_assoc:
             capienza_linea = linea.get('capienza', 0)
-            viaggi = linea.get('viaggi', 1)
+            viaggi = int(float(str(linea.get('frequenza_giornaliera', 1)).replace(',', '.')))
             capienza_totale_linea = capienza_linea * viaggi
-            if capienza_totale_linea <= 0:
-                continue
 
-            # Quanti turisti posso ancora mandare su questa linea?
             turisti_su_linea = min(turisti_restanti, capienza_p, capienza_totale_linea)
             if turisti_su_linea > 0:
                 linee_usate.add(linea['id'])
-                linee_usate_parcheggio.append({
-                    'linea_id': linea['id'],
-                    'turisti': turisti_su_linea
-                })
+                linee_usate_parcheggio.append({'linea_id': linea['id'], 'turisti': turisti_su_linea})
                 turisti_assegnati_parcheggio += turisti_su_linea
                 assegnati += turisti_su_linea
-                turisti_restanti -= turisti_su_linea
                 capienza_p -= turisti_su_linea
-            if assegnati >= n_turisti or capienza_p <= 0 or turisti_restanti <= 0:
+                turisti_restanti = n_turisti - assegnati
+            if assegnati >= n_turisti or capienza_p <= 0:
                 break
 
-        # Se non ci sono linee associate, puoi comunque assegnare i turisti (caso parcheggio senza linea)
         if not linee_assoc and capienza_p > 0 and turisti_restanti > 0:
             turisti_da_inviare = min(turisti_restanti, capienza_p)
             turisti_assegnati_parcheggio += turisti_da_inviare
             assegnati += turisti_da_inviare
-            capienza_p -= turisti_da_inviare
 
         if turisti_assegnati_parcheggio > 0:
             risultato[parcheggio['nome']] = turisti_assegnati_parcheggio
             parcheggio_copy = parcheggio.copy()
-            parcheggio_copy['linee_usate'] = linee_usate_parcheggio  # lista di dict {linea_id, turisti}
+            parcheggio_copy['linee_usate'] = linee_usate_parcheggio
             parcheggi_usati.append(parcheggio_copy)
 
-        if assegnati >= n_turisti:
-            break
-
-    # Filtra solo le linee effettivamente usate
     linee_utilizzate = [l for l in linee if l['id'] in linee_usate]
 
     return {
@@ -679,7 +719,6 @@ def ottimizza_risorse(parcheggi, linee, n_turisti):
         'parcheggi_usati': parcheggi_usati,
         'linee_usate': linee_utilizzate
     }
-
 
 # Run the Flask app on port 8080
 if __name__ == '__main__':

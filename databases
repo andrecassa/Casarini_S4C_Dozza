@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS linee (
     arrivo_lat REAL,
     arrivo_lng REAL,
     capienza INTEGER,
-    attivo BOOLEAN,
+    attiva BOOLEAN,
     sabato BOOLEAN,
     domenica BOOLEAN,
     frequenza_giornaliera REAL
@@ -198,3 +198,105 @@ for row in rows:
     print(row)
 conn.commit()
 conn.close()
+
+
+
+
+
+
+--SIMULAZIONI--
+
+# Connessione (crea il file se non esiste)
+conn = sqlite3.connect("simulazioni.db")
+cur = conn.cursor()
+
+# Creazione tabella simulazioni
+cur.execute("""
+CREATE TABLE IF NOT EXISTS simulazioni (
+    id TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    n_turisti INTEGER NOT NULL,
+    risultato TEXT,              -- JSON serializzato come stringa
+    parcheggi_usati TEXT,         -- JSON serializzato come stringa
+    linee_usate TEXT,             -- JSON serializzato come stringa
+    parcheggi_esclusi TEXT,       -- JSON serializzato come stringa
+    linee_escluse TEXT,           -- JSON serializzato come stringa
+    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+);
+""")
+
+
+
+
+
+
+sim_data = {
+    "id": "54ea5134-d82a-4b0a-83cf-6bed9491dc92",
+    "simulazione": {
+        "data": "13/06/2025",
+        "id": "54ea5134-d82a-4b0a-83cf-6bed9491dc92",
+        "n_turisti": 1000,
+        "timestamp": "Fri, 13 Jun 2025 15:48:00 GMT",
+        "linee_escluse": [],
+        "parcheggi_esclusi": [],
+        "risultato": {
+            "Bus parking Dozza": 97,
+            "Parcheggio Cavina Imola": 34,
+            "Parcheggio Dozza": 55,
+            "Parcheggio Toscanella Piazza Gramsci": 53,
+            "Parcheggio di piazzale ragazzi del '99": 112,
+            "Parcheggio gratuito Imola": 352,
+            "Parcheggio gratuito Zoo Acquario Imola": 85,
+            "Parcheggio mercato ortofrutticolo": 212
+        },
+        "linee": [
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Dozza", "domenica": True, "frequenza_giornaliera": "8,5", "id": "50", "nome": "147", "partenza_lat": "44,3843500000000", "partenza_lng": "11,6362500000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": True, "frequenza_giornaliera": "24", "id": "51", "nome": "101", "partenza_lat": "44,3531500000000", "partenza_lng": "11,7042500000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": True, "frequenza_giornaliera": "8,5", "id": "52", "nome": "140", "partenza_lat": "44,3531500000000", "partenza_lng": "11,7042500000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": False, "frequenza_giornaliera": "12", "id": "53", "nome": "147", "partenza_lat": "44,3531500000000", "partenza_lng": "11,7042500000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": True, "frequenza_giornaliera": "24", "id": "54", "nome": "101", "partenza_lat": "44,3576300000000", "partenza_lng": "11,7160900000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": True, "frequenza_giornaliera": "24", "id": "56", "nome": "101", "partenza_lat": "44,3510400000000", "partenza_lng": "11,7115000000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": False, "frequenza_giornaliera": "12", "id": "57", "nome": "147", "partenza_lat": "44,3510400000000", "partenza_lng": "11,7115000000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Imola", "domenica": True, "frequenza_giornaliera": "24", "id": "58", "nome": "101", "partenza_lat": "44,3589000000000", "partenza_lng": "11,7129900000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Dozza", "domenica": True, "frequenza_giornaliera": "96", "id": "79", "nome": "pedonale", "partenza_lat": "44,3599520000000", "partenza_lng": "11,6327700000000", "sabato": True},
+            {"arrivo_lat": "44,3593817080568", "arrivo_lng": "11,6288945531845", "attiva": True, "capienza": 69, "comune_arrivo": "Dozza", "comune_partenza": "Dozza", "domenica": True, "frequenza_giornaliera": "96", "id": "80", "nome": "pedonale", "partenza_lat": "44,3588700000000", "partenza_lng": "11,6243000000000", "sabato": True}
+        ],
+        "parcheggi": [
+            {"attivo": True, "capienza": 55, "comune": "Dozza", "id": "23", "latitudine": "44,3599520000000", "longitudine": "11,6327700000000", "nome": "Parcheggio Dozza", "linee_usate": [{"linea_id": "79", "turisti": 55}]},
+            {"attivo": True, "capienza": 97, "comune": "Dozza", "id": "24", "latitudine": "44,3588700000000", "longitudine": "11,6243000000000", "nome": "Bus parking Dozza", "linee_usate": [{"linea_id": "79", "turisti": 69}, {"linea_id": "80", "turisti": 28}]},
+            {"attivo": True, "capienza": 53, "comune": "Dozza", "id": "12", "latitudine": "44,3837505539671", "longitudine": "11,6360968731590", "nome": "Parcheggio Toscanella Piazza Gramsci", "linee_usate": [{"linea_id": "50", "turisti": 53}]},
+            {"attivo": True, "capienza": 352, "comune": "Imola", "id": "13", "latitudine": "44,3531500000000", "longitudine": "11,7042500000000", "nome": "Parcheggio gratuito Imola", "linee_usate": [{"linea_id": "51", "turisti": 69}, {"linea_id": "52", "turisti": 69}, {"linea_id": "53", "turisti": 69}, {"linea_id": "56", "turisti": 69}, {"linea_id": "57", "turisti": 69}, {"linea_id": "58", "turisti": 7}]},
+            {"attivo": True, "capienza": 212, "comune": "Imola", "id": "22", "latitudine": "44,3513600000000", "longitudine": "11,7106000000000", "nome": "Parcheggio mercato ortofrutticolo", "linee_usate": [{"linea_id": "51", "turisti": 69}, {"linea_id": "52", "turisti": 69}, {"linea_id": "53", "turisti": 69}, {"linea_id": "54", "turisti": 5}]},
+            {"attivo": True, "capienza": 34, "comune": "Imola", "id": "15", "latitudine": "44,3510400000000", "longitudine": "11,7115000000000", "nome": "Parcheggio Cavina Imola", "linee_usate": [{"linea_id": "51", "turisti": 34}]},
+            {"attivo": True, "capienza": 112, "comune": "Imola", "id": "19", "latitudine": "44,3506080000000", "longitudine": "11,7115090000000", "nome": "Parcheggio di piazzale ragazzi del '99", "linee_usate": [{"linea_id": "51", "turisti": 69}, {"linea_id": "52", "turisti": 43}]},
+            {"attivo": True, "capienza": 161, "comune": "Imola", "id": "16", "latitudine": "44,3589000000000", "longitudine": "11,7129900000000", "nome": "Parcheggio gratuito Zoo Acquario Imola", "linee_usate": [{"linea_id": "51", "turisti": 69}, {"linea_id": "52", "turisti": 16}]}
+        ]
+    }
+}
+
+# ===========================
+# INSERIMENTO NEL DATABASE
+# ===========================
+
+sim = sim_data["simulazione"]
+
+cur.execute("""
+INSERT OR REPLACE INTO simulazioni (id, data, n_turisti, risultato, parcheggi_usati, linee_usate,
+                                    parcheggi_esclusi, linee_escluse, timestamp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    sim["id"],
+    sim["data"],
+    sim["n_turisti"],
+    json.dumps(sim["risultato"], ensure_ascii=False),
+    json.dumps(sim["parcheggi"], ensure_ascii=False),
+    json.dumps(sim["linee"], ensure_ascii=False),
+    json.dumps(sim["parcheggi_esclusi"], ensure_ascii=False),
+    json.dumps(sim["linee_escluse"], ensure_ascii=False),
+    sim["timestamp"]
+))
+
+conn.commit()
+conn.close()
+
+print("✅ Simulazione inserita correttamente in simulazioni.db")
