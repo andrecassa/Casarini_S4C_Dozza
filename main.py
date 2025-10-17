@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, json
+from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, json, send_file
 from flask_login import LoginManager, current_user, login_user, logout_user, login_required, UserMixin
 from google.cloud import firestore
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -550,12 +550,31 @@ def api_simulazione():
 @app.route('/simulazioni', methods=['GET'])
 @login_required
 def simulazioni():
-    conn = get_sim_conn()
-    rows = conn.execute("SELECT * FROM simulazioni ORDER BY timestamp DESC").fetchall()
-    conn.close()
+    # --- Carica tutte le simulazioni salvate ---
+    conn_sim = get_sim_conn()
+    rows = conn_sim.execute("SELECT * FROM simulazioni ORDER BY timestamp DESC").fetchall()
+    conn_sim.close()
     simulazioni = [dict(r) for r in rows]
 
-    return render_template('simulazioni.html', simulazioni=simulazioni)
+    # --- Carica tutti i parcheggi da SQLite ---
+    conn_p = sqlite3.connect("parcheggi.db")
+    conn_p.row_factory = sqlite3.Row
+    parcheggi = [dict(r) for r in conn_p.execute("SELECT * FROM parcheggi").fetchall()]
+    conn_p.close()
+
+    # --- Carica tutte le linee da SQLite ---
+    conn_l = sqlite3.connect("linee.db")
+    conn_l.row_factory = sqlite3.Row
+    linee = [dict(r) for r in conn_l.execute("SELECT * FROM linee").fetchall()]
+    conn_l.close()
+
+    # --- Passa tutto al template ---
+    return render_template(
+        "simulazioni.html",
+        simulazioni=simulazioni,
+        parcheggi=parcheggi,
+        linee=linee
+    )
 
 @app.route("/api/simulazioni", methods=["POST"])
 def api_simulazioni():
@@ -614,13 +633,65 @@ def elimina_simulazione(sim_id):
 
 
 
+import os
+
 @app.route('/simulazioni/esporta', methods=['POST'])
 def simulazioni_esporta():
-    # Ricevi i dati della simulazione da esportare
-    sim_data = request.json # Dati in formato JSON
-    sim_id = sim_data.get('id', str(uuid.uuid4())) # Genera un nuovo ID se non presente
-    db.collection('simulazioni').document(sim_id).set(sim_data) # Salva la simulazione nel database
-    return jsonify({'status': 'ok', 'id': sim_id})
+    sim_data = request.json
+    sim_id = sim_data.get('id')
+
+    if not sim_id:
+        return jsonify({'status': 'error', 'message': 'ID simulazione mancante'}), 400
+
+    # Connessione al DB
+    conn = sqlite3.connect("simulazioni.db")
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM simulazioni WHERE id = ?", (sim_id,))
+    row = cur.fetchone()
+
+    if not row:
+        conn.close()
+        return jsonify({'status': 'error', 'message': 'Simulazione non trovata'}), 404
+
+    # Recupera nomi colonne
+    columns = [desc[0] for desc in cur.description]
+    sim = dict(zip(columns, row))
+    conn.close()
+
+    # Funzione per leggere campi JSON salvati come stringhe
+    def safe_json_loads(value):
+        try:
+            return json.loads(value) if value else []
+        except Exception:
+            return []
+
+    # Ricostruisci i dati della simulazione nel formato desiderato
+    export_data = {
+        "data": sim.get("data"),
+        "n_turisti": sim.get("n_turisti"),
+        "parcheggi_aperti": safe_json_loads(sim.get("parcheggi_usati")),
+        "parcheggi_esclusi": safe_json_loads(sim.get("parcheggi_esclusi")),
+        "linee_utilizzate": safe_json_loads(sim.get("linee_usate")),
+        "linee_escluse": safe_json_loads(sim.get("linee_escluse"))
+    }
+
+    # Crea file JSON
+    os.makedirs("exports", exist_ok=True)
+    filename = f"simulazione_{sim_id}.json"
+    export_path = os.path.join("exports", filename)
+
+    with open(export_path, "w", encoding="utf-8") as f:
+        json.dump(export_data, f, ensure_ascii=False, indent=4)
+
+    # ✅ Ritorna direttamente il file al browser come download
+    return send_file(
+        export_path,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/json"
+    )
+
 
 
 

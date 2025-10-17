@@ -100,6 +100,12 @@
     </style>
 </head>
 
+<!-- 1️⃣ jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- 2️⃣ Select2 -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <body class="is-preload">
 
 		<!-- Header -->
@@ -147,7 +153,7 @@
 					<section id="two">
                         <h2>Nuova simulazione</h2>
                         <div class="form-container">
-                            <form id="simForm" onsubmit="avviaSimulazione(event)">
+                          <form id="simForm">
                                 <div class="form-group">
                                     <label>Numero turisti previsti</label>
                                     <input type="number" name="n_turisti" required min="1">
@@ -171,7 +177,7 @@
                                     <label>Linee di trasporto da escludere</label>
                                     <select name="linee_escluse[]" multiple class="select2" style="width: 100%;">
                                         {% for l in linee %}
-                                        <option value="{{ l.id }}">{{ l.nome_linea }} | {{ l.partenza_comune }}</option>
+                                        <option value="{{ l.id }}">{{ l.nome }} | {{ l.comune_partenza }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -185,7 +191,12 @@
                             <script>
                             async function avviaSimulazione(e) {
                                 e.preventDefault();
+
                                 const form = e.target;
+
+                                // ✅ Esegui solo se è il form principale (evita di attivarsi su "Elimina")
+                                if (form.id !== "simForm") return;
+
                                 const data = {
                                     n_turisti: parseInt(form.n_turisti.value),
                                     data: form.data.value,
@@ -216,126 +227,54 @@
             </div>
 
     <!-- Script -->
-        <script>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
     $(document).ready(function () {
+        // Inizializza Select2
         $('.select2').select2({
             width: '100%',
             placeholder: "Seleziona...",
             allowClear: true
         });
 
-        // Intercetta l’invio del form “Nuova simulazione”
-        const form = document.querySelector('form[method="post"]');
-        if (form) {
-            form.addEventListener("submit", avviaSimulazione);
+        // ✅ Attiva avvio simulazione SOLO per il form principale
+        const simForm = document.getElementById("simForm");
+        if (simForm) {
+            simForm.addEventListener("submit", avviaSimulazione);
         }
+
+        // ✅ I form "Elimina" useranno il submit classico (no JS)
     });
 
-    async function avviaSimulazione(e) {
-        e.preventDefault();
-        const form = e.target;
-        const data = {
-            n_turisti: parseInt(form.n_turisti.value),
-            data: form.data.value,
-            parcheggi_esclusi: Array.from(form['parcheggi_esclusi[]'].selectedOptions).map(o => o.value),
-            linee_escluse: Array.from(form['linee_escluse[]'].selectedOptions).map(o => o.value)
-        };
-
-        try {
-            const resp = await fetch('/api/sim', {
+        function esportaSimulazione(simId) {
+            fetch('/simulazioni/esporta', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify({ id: simId })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Errore durante l'esportazione");
+                return response.blob(); // 📦 riceviamo il file come blob
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `simulazione_${simId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(err => {
+                console.error("Errore esportazione:", err);
+                alert("❌ Errore durante l'esportazione della simulazione.");
             });
-
-            const text = await resp.text();
-            let result = null;
-            try {
-                result = JSON.parse(text);
-            } catch {
-                throw new Error("Risposta non JSON dal server:\n" + text);
-            }
-
-            if (!resp.ok) {
-                console.error("Errore HTTP:", result);
-                alert("❌ Errore dal server: " + (result.error || resp.statusText));
-                return;
-            }
-
-            alert("✅ Simulazione avviata con successo!\nID: " + result.id);
-            window.location.reload();
-        } catch (err) {
-            console.error("Errore di connessione:", err);
-            alert("❌ Errore di connessione al server.");
         }
-    }
 
-    function esportaSimulazione(simId) {
-        fetch('/simulazioni/' + simId)
-            .then(response => response.json())
-            .then(data => {
-                fetch('/simulazioni/esporta', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                })
-                    .then(resp => resp.json())
-                    .then(res => {
-                        alert('Simulazione esportata con successo! ID: ' + res.id);
-                    });
-            });
-    }
     </script>
-
-
-    <script>
-$(document).ready(function () {
-    $('.select2').select2({
-        width: '100%',
-        placeholder: "Seleziona...",
-        allowClear: true
-    });
-
-    // intercetta l'invio del form
-    $('form').on('submit', async function (event) {
-        event.preventDefault(); // blocca l'invio tradizionale del form
-
-        const n_turisti = parseInt($('input[name="n_turisti"]').val());
-        const data = $('input[name="data"]').val();
-        const parcheggi_esclusi = $('select[name="parcheggi_esclusi[]"]').val() || [];
-        const linee_escluse = $('select[name="linee_escluse[]"]').val() || [];
-
-        const body = {
-            n_turisti: n_turisti,
-            data: data,
-            parcheggi_esclusi: parcheggi_esclusi,
-            linee_escluse: linee_escluse
-        };
-
-        try {
-            const response = await fetch('/api/simulazioni', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            const res = await response.json();
-
-            if (response.ok && res.success !== false) {
-                alert('✅ Simulazione completata con successo!');
-                console.log('Risultato simulazione:', res);
-                location.reload(); // ricarica la pagina per mostrare la nuova simulazione nella tabella
-            } else {
-                alert('❌ Errore nella simulazione: ' + (res.error || 'Errore sconosciuto'));
-                console.error(res);
-            }
-        } catch (err) {
-            alert('❌ Errore di connessione al server.');
-            console.error(err);
-        }
-    });
-});
-</script>
 
 </body>
 

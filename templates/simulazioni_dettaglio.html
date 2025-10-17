@@ -77,7 +77,7 @@
                                 <ul>
                                     {% for l in simulazione.linee %}
                                         <li>{{ l.nome_linea or l.nome }}<br>
-                                            Da: {{ l.partenza_comune }} → {{ l.arrivo_comune }}
+                                            Da: {{ l.comune_partenza }} → {{ l.comune_arrivo }}
                                         </li>
                                     {% endfor %}
                                 </ul>
@@ -143,6 +143,7 @@
     <script type="application/json" id="linee-data">{{ simulazione.linee|tojson }}</script>
     <script type="application/json" id="simulazione-data">
 {{ {
+    "id": "simulazione.id",
     "n_turisti": simulazione.n_turisti,
     "data": simulazione.data,
     "parcheggi_aperti": simulazione.parcheggi or [],
