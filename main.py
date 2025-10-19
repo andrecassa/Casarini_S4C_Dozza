@@ -222,6 +222,28 @@ def mappa_dati():
 
 PARCHEGGI_DB = "parcheggi.db"
 
+connection = sqlite3.connect('utenti.db')
+
+with connection:
+    connection.execute('''
+        CREATE TABLE IF NOT EXISTS utenti (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            ruolo TEXT NOT NULL
+        )
+    ''')
+
+    # Inserisce admin solo se non esiste già (password salvata in chiaro)
+    connection.execute("""
+    INSERT OR IGNORE INTO utenti (email, password, ruolo)
+    VALUES (?, ?, ?)
+""", ("marco.mamei@unimore.it", "ciao", "admin"))
+
+connection.commit()
+connection.close()
+
+    
 def get_db_connection():
     conn = sqlite3.connect(PARCHEGGI_DB)
     conn.row_factory = sqlite3.Row

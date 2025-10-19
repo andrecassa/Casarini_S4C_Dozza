@@ -143,7 +143,7 @@
     <script type="application/json" id="linee-data">{{ simulazione.linee|tojson }}</script>
     <script type="application/json" id="simulazione-data">
 {{ {
-    "id": "simulazione.id",
+    "id": simulazione.id,
     "n_turisti": simulazione.n_turisti,
     "data": simulazione.data,
     "parcheggi_aperti": simulazione.parcheggi or [],
@@ -188,18 +188,35 @@ parcheggi.forEach(function(p) {
     }
 });
 
-function esportaSimulazione() {
-    const data = JSON.parse(document.getElementById('simulazione-data').textContent);
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `simulazione_${data.data.replaceAll('/','-')}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
+        function esportaSimulazione() {
+            const simData = JSON.parse(document.getElementById('simulazione-data').textContent);
+            const simId = simData.id;
+
+            fetch('/simulazioni/esporta', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: simId })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Errore durante l'esportazione");
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `simulazione_${simId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(err => {
+                console.error("Errore esportazione:", err);
+                alert("❌ Errore durante l'esportazione della simulazione.");
+            });
+        }
+
     </script>
 
 
