@@ -1,11 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, json, send_file
 from flask_login import LoginManager, current_user, login_user, logout_user, login_required, UserMixin
-from google.cloud import firestore
-from werkzeug.security import generate_password_hash, check_password_hash
-from geopy.distance import geodesic
 from datetime import datetime
 import uuid
 import sqlite3
+import os
+from geopy.distance import geodesic
+
 
 from secret import secret_key
 
@@ -17,121 +17,136 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+def get_db_connectionUtenti():
+    """Ritorna una connessione aperta a utenti.db"""
+    conn = sqlite3.connect("utenti.db")
+    conn.row_factory = sqlite3.Row  # permette di accedere ai campi per nome
+    return conn
+
+# ------------------CLASSE USER-----------------------
 class User(UserMixin):
-    def __init__(self, id, email):
+    def __init__(self, id, email, ruolo):
         self.id = id
         self.email = email
+        self.ruolo = ruolo
 
     @staticmethod
-    def get(user_id):
-        doc = db.collection('utenti').document(user_id).get()
-        if doc.exists:
-            data = doc.to_dict()
-            return User(id=doc.id, email=data['email'])
+    def get_by_id(user_id):
+        conn = get_db_connectionUtenti()
+        user = conn.execute("SELECT * FROM utenti WHERE id = ?", (user_id,)).fetchone()
+        conn.close()
+        if user:
+            return User(id=user["id"], email=user["email"], ruolo=user["ruolo"])
         return None
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.get(user_id)
+    return User.get_by_id(user_id)
 
-# Firestore client
-db = firestore.Client.from_service_account_json('credentials.json', database='mobility-dozza')
-
-# Appena apro l'applicazione reindirizza alla pagina di login
+# -----------------ROTTE PRINCIPALI--------------------
 @app.route('/')
 def home():
-    return redirect(url_for('mappa_page'))
+    return redirect(url_for('login'))
 
-#-------------- AUTHENTICATION ---------------
-
+# ------------------- LOGIN UTENTE --------------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        # Recupera l'utente da Firestore
-        utenti = db.collection('utenti').where('email', '==', email).stream()
-        user = None
-        for doc in utenti:
-            data = doc.to_dict()
-            if check_password_hash(data.get('password'), password):  # password è quella inserita dall'utente
-                user = User(id=doc.id, email=email)
-                break
-        if user:
-            login_user(user)
+
+        conn = get_db_connectionUtenti()
+        user = conn.execute("SELECT * FROM utenti WHERE email = ?", (email,)).fetchone()
+        conn.close()
+
+        if user and user["password"] == password:  # 🔓 password in chiaro
+            user_obj = User(id=user["id"], email=user["email"], ruolo=user["ruolo"])
+            login_user(user_obj)
             next_page = request.args.get('next')
             return redirect(next_page or url_for('mappa_page'))
         else:
             return render_template('login.html', error="Credenziali non valide")
+
     return render_template('login.html')
 
-@app.route('/logout', methods=['GET', 'POST'])
+
+# ------------------- LOGOUT --------------------------
+@app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
+# ------------------- LOGIN ADMIN ---------------------
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        utenti = db.collection('utenti').where('email', '==', email).where('ruolo', '==', 'admin').stream()
-        user = None
-        for doc in utenti:
-            data = doc.to_dict()
-            print("DEBUG admin_login:", data)  # STAMPA DI DEBUG
-            if check_password_hash(data.get('password'), password):  # <-- usa check_password_hash!
-                user = User(id=doc.id, email=email)
-                break
-        if user:
-            login_user(user)
+
+        conn = get_db_connectionUtenti()
+        admin = conn.execute(
+            "SELECT * FROM utenti WHERE email = ? AND ruolo = 'admin'", (email,)
+        ).fetchone()
+        conn.close()
+
+        if admin and admin["password"] == password:
+            user_obj = User(id=admin["id"], email=admin["email"], ruolo=admin["ruolo"])
+            login_user(user_obj)
             return redirect(url_for('admin_dashboard'))
         else:
             return render_template('admin_login.html', error="Credenziali amministratore non valide")
+
     return render_template('admin_login.html')
 
+
+# ------------------- DASHBOARD ADMIN -----------------
 @app.route('/admin/dashboard', methods=['GET', 'POST'])
 @login_required
 def admin_dashboard():
-    # Consenti solo all'admin
-    utenti = db.collection('utenti').document(current_user.id).get()
-    #print("DEBUG admin_dashboard:", utenti.to_dict())
-    if not utenti.exists or utenti.to_dict().get('ruolo') != 'admin':
+    if current_user.ruolo != 'admin':
         abort(403)
+
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         ruolo = request.form.get('ruolo', 'user')
-        hashed_password = generate_password_hash(password)  # password è quella in chiaro
-        db.collection('utenti').add({
-            'email': email,
-            'password': hashed_password,
-            'ruolo': ruolo
-        })
-        return render_template('admin_dashboard.html', success="Utente aggiunto!")
+
+        conn = get_db_connectionUtenti()
+        try:
+            conn.execute(
+                "INSERT INTO utenti (email, password, ruolo) VALUES (?, ?, ?)",
+                (email, password, ruolo),
+            )
+            conn.commit()
+            message = "Utente aggiunto con successo!"
+        except sqlite3.IntegrityError:
+            message = "Errore: utente già esistente!"
+        conn.close()
+
+        return render_template('admin_dashboard.html', success=message)
+
     return render_template('admin_dashboard.html')
 
+
+# ------------------- GESTIONE UTENTI -----------------
 @app.route('/admin/utenti', methods=['GET', 'POST'])
 @login_required
 def gestione_utenti():
-    # Consenti solo all'admin
-    utenti_doc = db.collection('utenti').document(current_user.id).get()
-    if not utenti_doc.exists or utenti_doc.to_dict().get('ruolo') != 'admin':
+    if current_user.ruolo != 'admin':
         abort(403)
 
-    # Elimina utente se richiesto
+    conn = get_db_connectionUtenti()
+
     if request.method == 'POST':
         utente_id = request.form.get('utente_id')
-        if utente_id:
-            db.collection('utenti').document(utente_id).delete()
+        conn.execute("DELETE FROM utenti WHERE id = ?", (utente_id,))
+        conn.commit()
 
-    # Recupera tutti gli utenti
-    utenti = []
-    for doc in db.collection('utenti').stream():
-        data = doc.to_dict()
-        data['id'] = doc.id
-        utenti.append(data)
+    utenti = conn.execute("SELECT * FROM utenti").fetchall()
+    conn.close()
+
     return render_template('gestione_utenti.html', utenti=utenti)
 
 #------------------ MAP ---------------------
@@ -140,14 +155,11 @@ def gestione_utenti():
 @app.route('/mappa')
 @login_required
 def mappa_page():
-    ruolo = None
-    user_doc = db.collection('utenti').document(current_user.id).get()
-    if user_doc.exists:
-        ruolo = user_doc.to_dict().get('ruolo')
-    is_admin = (ruolo == 'admin')
+    # Il ruolo è già salvato nell'oggetto Flask-Login
+    is_admin = (current_user.ruolo == 'admin')
     return render_template('map.html', is_admin=is_admin)
 
-# Endpoint for map data: returns active parking lots and transport lines
+# Endpoint per map data: ritorna i parcheggi e le linee attive
 
 @app.route('/mappa/dati', methods=['GET'])
 @login_required
@@ -155,9 +167,7 @@ def mappa_dati():
     parcheggi = []
     linee_bus = []
 
-    # --------------------------------------------
     # 1) Leggi parcheggi da SQLite (parcheggi.db)
-    # --------------------------------------------
     try:
         conn = sqlite3.connect('parcheggi.db')
         conn.row_factory = sqlite3.Row
@@ -180,9 +190,7 @@ def mappa_dati():
     finally:
         conn.close()
 
-    # ------------------------------------
     # 2) Leggi linee da SQLite (linee.db)
-    # ------------------------------------
     try:
         conn = sqlite3.connect('linee.db')
         conn.row_factory = sqlite3.Row
@@ -208,43 +216,18 @@ def mappa_dati():
     finally:
         conn.close()
 
-    # -----------------------------
     # 3) Ritorna JSON combinato
-    # -----------------------------
     return jsonify({
         'parcheggi': parcheggi,
         'linee_trasporto': linee_bus
     })
 
 
-
 #---------------- PARCHEGGI -----------------
 
 PARCHEGGI_DB = "parcheggi.db"
-
-connection = sqlite3.connect('utenti.db')
-
-with connection:
-    connection.execute('''
-        CREATE TABLE IF NOT EXISTS utenti (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            ruolo TEXT NOT NULL
-        )
-    ''')
-
-    # Inserisce admin solo se non esiste già (password salvata in chiaro)
-    connection.execute("""
-    INSERT OR IGNORE INTO utenti (email, password, ruolo)
-    VALUES (?, ?, ?)
-""", ("marco.mamei@unimore.it", "ciao", "admin"))
-
-connection.commit()
-connection.close()
-
     
-def get_db_connection():
+def get_db_connectionParcheggi():
     conn = sqlite3.connect(PARCHEGGI_DB)
     conn.row_factory = sqlite3.Row
     return conn
@@ -263,7 +246,7 @@ def parcheggi_redirect():
 # Restituisce tutti i parcheggi in JSON
 @app.route('/api/parcheggi', methods=['GET'])
 def get_parcheggi():
-    conn = get_db_connection()
+    conn = get_db_connectionParcheggi()
     rows = conn.execute("SELECT * FROM parcheggi").fetchall()
     conn.close()
     parcheggi = [dict(row) for row in rows]
@@ -272,7 +255,7 @@ def get_parcheggi():
 # GET un parcheggio specifico
 @app.route('/api/parcheggi/<id>', methods=['GET'])
 def get_parcheggio(id):
-    conn = get_db_connection()
+    conn = get_db_connectionParcheggi()
     row = conn.execute("SELECT * FROM parcheggi WHERE id = ?", (id,)).fetchone()
     conn.close()
     if row:
@@ -333,7 +316,7 @@ def update_parcheggio(id):
 # DELETE parcheggio
 @app.route('/api/parcheggi/<id>', methods=['DELETE'])
 def delete_parcheggio(id):
-    conn = get_db_connection()
+    conn = get_db_connectionParcheggi()
     conn.execute("DELETE FROM parcheggi WHERE id = ?", (id,))
     conn.commit()
     conn.close()
@@ -343,6 +326,11 @@ def delete_parcheggio(id):
 # ---------------- LINEE BUS -----------------
 
 LINEE_DB = "linee.db"
+
+def get_db_connectionLinee():
+    conn = sqlite3.connect(LINEE_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # Pagina principale (HTML)
 @app.route('/linee_page')
@@ -360,8 +348,7 @@ def linee_redirect():
 # GET tutte le linee (JSON API)
 @app.route('/api/linee', methods=['GET'])
 def get_linee():
-    conn = sqlite3.connect(LINEE_DB)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connectionLinee()
     rows = conn.execute("SELECT * FROM linee").fetchall()
     conn.close()
     linee = [dict(row) for row in rows]
@@ -371,8 +358,7 @@ def get_linee():
 # GET una singola linea
 @app.route('/api/linee/<id>', methods=['GET'])
 def get_linea(id):
-    conn = sqlite3.connect(LINEE_DB)
-    conn.row_factory = sqlite3.Row
+    conn = get_db_connectionLinee()
     row = conn.execute("SELECT * FROM linee WHERE id=?", (int(id),)).fetchone()
     conn.close()
     if row:
@@ -398,7 +384,7 @@ def add_linea():
         domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
         frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
 
-        conn = sqlite3.connect(LINEE_DB)
+        conn = get_db_connectionLinee()
         cur = conn.cursor()
         cur.execute(
             """INSERT INTO linee 
@@ -436,7 +422,7 @@ def update_linea(id):
         domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
         frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
 
-        conn = sqlite3.connect(LINEE_DB)
+        conn = get_db_connectionLinee()
         conn.execute(
             """UPDATE linee 
                SET nome=?, comune_partenza=?, partenza_lat=?, partenza_lng=?, 
@@ -458,20 +444,18 @@ def update_linea(id):
 # DELETE linea
 @app.route('/api/linee/<id>', methods=['DELETE'])
 def delete_linea(id):
-    conn = sqlite3.connect(LINEE_DB)
+    conn = get_db_connectionLinee()
     conn.execute("DELETE FROM linee WHERE id=?", (int(id),))
     conn.commit()
     conn.close()
     return jsonify({"success": True})
-
-#---------------- SIMULAZIONI ---------------
 
 
 # ---------------- SIMULAZIONI ---------------
 
 SIMULAZIONI_DB = "simulazioni.db"
 
-def get_sim_conn():
+def get_db_connectionSimulazioni():
     """Connessione sicura al DB delle simulazioni"""
     conn = sqlite3.connect(SIMULAZIONI_DB)
     conn.row_factory = sqlite3.Row
@@ -509,20 +493,7 @@ def run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids):
 
     # --- Salva in DB simulazioni ---
     try:
-        conn = get_sim_conn()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS simulazioni (
-                id TEXT PRIMARY KEY,
-                data TEXT,
-                n_turisti INTEGER,
-                risultato TEXT,
-                parcheggi_usati TEXT,
-                linee_usate TEXT,
-                parcheggi_esclusi TEXT,
-                linee_escluse TEXT,
-                timestamp TEXT
-            )
-        """)
+        conn = get_db_connectionSimulazioni()
         conn.execute("""
             INSERT INTO simulazioni (id, data, n_turisti, risultato, parcheggi_usati, linee_usate,
                                      parcheggi_esclusi, linee_escluse, timestamp)
@@ -555,7 +526,6 @@ def run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids):
     }
 
 
-
 @app.route('/api/sim', methods=['POST'])
 def api_simulazione():
     data = request.json.get('data')
@@ -573,7 +543,7 @@ def api_simulazione():
 @login_required
 def simulazioni():
     # --- Carica tutte le simulazioni salvate ---
-    conn_sim = get_sim_conn()
+    conn_sim = get_db_connectionSimulazioni()
     rows = conn_sim.execute("SELECT * FROM simulazioni ORDER BY timestamp DESC").fetchall()
     conn_sim.close()
     simulazioni = [dict(r) for r in rows]
@@ -613,7 +583,7 @@ def api_simulazioni():
 @app.route('/simulazioni/<sim_id>')
 @app.route('/simulazioni/<sim_id>')
 def simulazione_dettaglio(sim_id):
-    conn = get_sim_conn()
+    conn = get_db_connectionSimulazioni()
     row = conn.execute("SELECT * FROM simulazioni WHERE id=?", (sim_id,)).fetchone()
     conn.close()
     if not row:
@@ -642,20 +612,15 @@ def simulazione_dettaglio(sim_id):
     return render_template("simulazioni_dettaglio.html", simulazione=simulazione)
 
 
-
 # 🔹 Elimina simulazione
 @app.route('/simulazioni/elimina/<sim_id>', methods=['POST'])
 @login_required
 def elimina_simulazione(sim_id):
-    conn = get_sim_conn()
+    conn = get_db_connectionSimulazioni()
     conn.execute("DELETE FROM simulazioni WHERE id=?", (sim_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('simulazioni'))
-
-
-
-import os
 
 @app.route('/simulazioni/esporta', methods=['POST'])
 def simulazioni_esporta():
@@ -713,12 +678,6 @@ def simulazioni_esporta():
         download_name=filename,
         mimetype="application/json"
     )
-
-
-
-
-
-from geopy.distance import geodesic
 
 DOZZA_COORDS = (44.3511, 11.6519)
 
@@ -816,4 +775,3 @@ def ottimizza_risorse(parcheggi, linee, n_turisti):
 # Run the Flask app on port 8080
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)
-

@@ -142,15 +142,15 @@
     <script type="application/json" id="parcheggi-data">{{ simulazione.parcheggi|tojson }}</script>
     <script type="application/json" id="linee-data">{{ simulazione.linee|tojson }}</script>
     <script type="application/json" id="simulazione-data">
-{{ {
-    "id": simulazione.id,
-    "n_turisti": simulazione.n_turisti,
-    "data": simulazione.data,
-    "parcheggi_aperti": simulazione.parcheggi or [],
-    "linee_utilizzate": simulazione.linee or [],
-    "parcheggi_esclusi": simulazione.parcheggi_esclusi or [],
-    "linee_escluse": simulazione.linee_escluse or []
-} | tojson }}
+        {{ {
+            "id": simulazione.id,
+            "n_turisti": simulazione.n_turisti,
+            "data": simulazione.data,
+            "parcheggi_aperti": simulazione.parcheggi or [],
+            "linee_utilizzate": simulazione.linee or [],
+            "parcheggi_esclusi": simulazione.parcheggi_esclusi or [],
+            "linee_escluse": simulazione.linee_escluse or []
+        } | tojson }}
 </script>
     <script>
 const parcheggi = JSON.parse(document.getElementById("parcheggi-data").textContent);
