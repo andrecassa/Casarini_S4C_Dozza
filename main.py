@@ -167,7 +167,7 @@ def mappa_dati():
     parcheggi = []
     linee_bus = []
 
-    # 1) Leggi parcheggi da SQLite (parcheggi.db)
+    # 1) Leggi parcheggi da SQLite (databases/parcheggi.db)
     try:
         conn = sqlite3.connect('databases/parcheggi.db')
         conn.row_factory = sqlite3.Row
@@ -190,7 +190,7 @@ def mappa_dati():
     finally:
         conn.close()
 
-    # 2) Leggi linee da SQLite (linee.db)
+    # 2) Leggi linee da SQLite (databases/linee.db)
     try:
         conn = sqlite3.connect('databases/linee.db')
         conn.row_factory = sqlite3.Row
@@ -225,7 +225,7 @@ def mappa_dati():
 
 #---------------- PARCHEGGI -----------------
 
-PARCHEGGI_DB = "parcheggi.db"
+PARCHEGGI_DB = "databases/parcheggi.db"
     
 def get_db_connectionParcheggi():
     conn = sqlite3.connect(PARCHEGGI_DB)
@@ -325,7 +325,7 @@ def delete_parcheggio(id):
 
 # ---------------- LINEE BUS -----------------
 
-LINEE_DB = "linee.db"
+LINEE_DB = "databases/linee.db"
 
 def get_db_connectionLinee():
     conn = sqlite3.connect(LINEE_DB)
