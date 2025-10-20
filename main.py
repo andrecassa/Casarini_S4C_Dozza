@@ -19,7 +19,7 @@ login_manager.login_view = 'login'
 
 def get_db_connectionUtenti():
     """Ritorna una connessione aperta a utenti.db"""
-    conn = sqlite3.connect("utenti.db")
+    conn = sqlite3.connect("databases/utenti.db")
     conn.row_factory = sqlite3.Row  # permette di accedere ai campi per nome
     return conn
 
@@ -169,7 +169,7 @@ def mappa_dati():
 
     # 1) Leggi parcheggi da SQLite (parcheggi.db)
     try:
-        conn = sqlite3.connect('parcheggi.db')
+        conn = sqlite3.connect('databases/parcheggi.db')
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
 
@@ -192,7 +192,7 @@ def mappa_dati():
 
     # 2) Leggi linee da SQLite (linee.db)
     try:
-        conn = sqlite3.connect('linee.db')
+        conn = sqlite3.connect('databases/linee.db')
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute("SELECT * FROM linee WHERE attiva = 1")
@@ -275,7 +275,7 @@ def add_parcheggio():
         latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
         longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
 
-        conn = sqlite3.connect("parcheggi.db")
+        conn = sqlite3.connect("databases/parcheggi.db")
         conn.execute(
             "INSERT INTO parcheggi (nome, comune, capienza, attivo, latitudine, longitudine) VALUES (?, ?, ?, ?, ?, ?)",
             (nome, comune, capienza, attivo, latitudine, longitudine),
@@ -301,7 +301,7 @@ def update_parcheggio(id):
         latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
         longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
 
-        conn = sqlite3.connect("parcheggi.db")
+        conn = sqlite3.connect("databases/parcheggi.db")
         conn.execute(
             "UPDATE parcheggi SET nome=?, comune=?, capienza=?, attivo=?, latitudine=?, longitudine=? WHERE id=?",
             (nome, comune, capienza, attivo, latitudine, longitudine, int(id))
@@ -453,7 +453,7 @@ def delete_linea(id):
 
 # ---------------- SIMULAZIONI ---------------
 
-SIMULAZIONI_DB = "simulazioni.db"
+SIMULAZIONI_DB = "databases/simulazioni.db"
 
 def get_db_connectionSimulazioni():
     """Connessione sicura al DB delle simulazioni"""
@@ -465,13 +465,13 @@ def get_db_connectionSimulazioni():
 def run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids):
     """Esegue la simulazione e salva i risultati nel DB SQLite"""
     # --- Recupera parcheggi ---
-    conn_p = sqlite3.connect("parcheggi.db")
+    conn_p = sqlite3.connect("databases/parcheggi.db")
     conn_p.row_factory = sqlite3.Row
     parcheggi = [dict(r) for r in conn_p.execute("SELECT * FROM parcheggi").fetchall()]
     conn_p.close()
 
     # --- Recupera linee ---
-    conn_l = sqlite3.connect("linee.db")
+    conn_l = sqlite3.connect("databases/linee.db")
     conn_l.row_factory = sqlite3.Row
     linee = [dict(r) for r in conn_l.execute("SELECT * FROM linee").fetchall()]
     conn_l.close()
@@ -549,13 +549,13 @@ def simulazioni():
     simulazioni = [dict(r) for r in rows]
 
     # --- Carica tutti i parcheggi da SQLite ---
-    conn_p = sqlite3.connect("parcheggi.db")
+    conn_p = sqlite3.connect("databases/parcheggi.db")
     conn_p.row_factory = sqlite3.Row
     parcheggi = [dict(r) for r in conn_p.execute("SELECT * FROM parcheggi").fetchall()]
     conn_p.close()
 
     # --- Carica tutte le linee da SQLite ---
-    conn_l = sqlite3.connect("linee.db")
+    conn_l = sqlite3.connect("databases/linee.db")
     conn_l.row_factory = sqlite3.Row
     linee = [dict(r) for r in conn_l.execute("SELECT * FROM linee").fetchall()]
     conn_l.close()
@@ -631,7 +631,7 @@ def simulazioni_esporta():
         return jsonify({'status': 'error', 'message': 'ID simulazione mancante'}), 400
 
     # Connessione al DB
-    conn = sqlite3.connect("simulazioni.db")
+    conn = sqlite3.connect("databases/simulazioni.db")
     cur = conn.cursor()
 
     cur.execute("SELECT * FROM simulazioni WHERE id = ?", (sim_id,))
