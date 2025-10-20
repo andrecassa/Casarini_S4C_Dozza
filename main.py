@@ -8,9 +8,11 @@ from geopy.distance import geodesic
 
 
 from secret import secret_key
+from api import api  # importa il Blueprint delle API
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secret_key
+app.register_blueprint(api)
 
 # Flask-Login setup - impostiamo la pagina di login manager
 login_manager = LoginManager()
@@ -225,10 +227,8 @@ def mappa_dati():
 
 #---------------- PARCHEGGI -----------------
 
-PARCHEGGI_DB = "databases/parcheggi.db"
-    
 def get_db_connectionParcheggi():
-    conn = sqlite3.connect(PARCHEGGI_DB)
+    conn = sqlite3.connect("databases/parcheggi.db")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -243,92 +243,11 @@ def parcheggi_page():
 def parcheggi_redirect():
     return redirect(url_for('parcheggi_page'))
 
-# Restituisce tutti i parcheggi in JSON
-@app.route('/api/parcheggi', methods=['GET'])
-def get_parcheggi():
-    conn = get_db_connectionParcheggi()
-    rows = conn.execute("SELECT * FROM parcheggi").fetchall()
-    conn.close()
-    parcheggi = [dict(row) for row in rows]
-    return jsonify(parcheggi)
-
-# GET un parcheggio specifico
-@app.route('/api/parcheggi/<id>', methods=['GET'])
-def get_parcheggio(id):
-    conn = get_db_connectionParcheggi()
-    row = conn.execute("SELECT * FROM parcheggi WHERE id = ?", (id,)).fetchone()
-    conn.close()
-    if row:
-        return jsonify(dict(row))
-    else:
-        return jsonify({'error': 'Parcheggio non trovato'}), 404
-
-# POST nuovo parcheggio
-@app.route('/api/parcheggi', methods=['POST'])
-def add_parcheggio():
-    data = request.json
-    try:
-        nome = str(data.get("nome", ""))
-        comune = str(data.get("comune", ""))
-        capienza = int(data.get("capienza", 0))
-        attivo = 1 if data.get("attivo") in [True, "true", "1", 1] else 0
-        latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
-        longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
-
-        conn = sqlite3.connect("databases/parcheggi.db")
-        conn.execute(
-            "INSERT INTO parcheggi (nome, comune, capienza, attivo, latitudine, longitudine) VALUES (?, ?, ?, ?, ?, ?)",
-            (nome, comune, capienza, attivo, latitudine, longitudine),
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True}), 201
-
-    except Exception as e:
-        print("Errore in add_parcheggio:", e, " -- Dati ricevuti:", data)
-        return jsonify({"error": str(e)}), 400
-
-
-# PUT modifica parcheggio
-@app.route('/api/parcheggi/<id>', methods=['PUT'])
-def update_parcheggio(id):
-    data = request.json
-    try:
-        nome = str(data.get("nome", ""))
-        comune = str(data.get("comune", ""))
-        capienza = int(data.get("capienza", 0))
-        attivo = 1 if data.get("attivo") in [True, "true", "1", 1] else 0
-        latitudine = float(str(data.get("latitudine", "0")).replace(",", "."))
-        longitudine = float(str(data.get("longitudine", "0")).replace(",", "."))
-
-        conn = sqlite3.connect("databases/parcheggi.db")
-        conn.execute(
-            "UPDATE parcheggi SET nome=?, comune=?, capienza=?, attivo=?, latitudine=?, longitudine=? WHERE id=?",
-            (nome, comune, capienza, attivo, latitudine, longitudine, int(id))
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True})
-    except Exception as e:
-        print("Errore in update_parcheggio:", e, "-- dati ricevuti:", data)
-        return jsonify({"error": str(e)}), 400
-
-# DELETE parcheggio
-@app.route('/api/parcheggi/<id>', methods=['DELETE'])
-def delete_parcheggio(id):
-    conn = get_db_connectionParcheggi()
-    conn.execute("DELETE FROM parcheggi WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
-
 
 # ---------------- LINEE BUS -----------------
 
-LINEE_DB = "databases/linee.db"
-
 def get_db_connectionLinee():
-    conn = sqlite3.connect(LINEE_DB)
+    conn = sqlite3.connect("databases/linee.db")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -345,119 +264,10 @@ def linee_redirect():
     return redirect(url_for('linee_page'))
 
 
-# GET tutte le linee (JSON API)
-@app.route('/api/linee', methods=['GET'])
-def get_linee():
-    conn = get_db_connectionLinee()
-    rows = conn.execute("SELECT * FROM linee").fetchall()
-    conn.close()
-    linee = [dict(row) for row in rows]
-    return jsonify(linee)
-
-
-# GET una singola linea
-@app.route('/api/linee/<id>', methods=['GET'])
-def get_linea(id):
-    conn = get_db_connectionLinee()
-    row = conn.execute("SELECT * FROM linee WHERE id=?", (int(id),)).fetchone()
-    conn.close()
-    if row:
-        return jsonify(dict(row))
-    return jsonify({"error": "Linea non trovata"}), 404
-
-
-# POST nuova linea
-@app.route('/api/linee', methods=['POST'])
-def add_linea():
-    data = request.json
-    try:
-        nome = str(data.get("nome", ""))
-        comune_partenza = str(data.get("comune_partenza", ""))
-        partenza_lat = float(str(data.get("partenza_lat", "0")).replace(",", "."))
-        partenza_lng = float(str(data.get("partenza_lng", "0")).replace(",", "."))
-        comune_arrivo = str(data.get("comune_arrivo", ""))
-        arrivo_lat = float(str(data.get("arrivo_lat", "0")).replace(",", "."))
-        arrivo_lng = float(str(data.get("arrivo_lng", "0")).replace(",", "."))
-        capienza = int(data.get("capienza", 0))
-        attiva = 1 if data.get("attiva") in [True, "true", "1", 1] else 0
-        sabato = 1 if data.get("sabato") in [True, "true", "1", 1] else 0
-        domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
-        frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
-
-        conn = get_db_connectionLinee()
-        cur = conn.cursor()
-        cur.execute(
-            """INSERT INTO linee 
-               (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
-                arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
-             arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera)
-        )
-        conn.commit()
-        new_id = cur.lastrowid
-        conn.close()
-        return jsonify({"id": new_id}), 201
-
-    except Exception as e:
-        print("Errore in add_linea:", e, "-- dati:", data)
-        return jsonify({"error": str(e)}), 400
-
-
-# PUT modifica linea
-@app.route('/api/linee/<id>', methods=['PUT'])
-def update_linea(id):
-    data = request.json
-    try:
-        nome = str(data.get("nome", ""))
-        comune_partenza = str(data.get("comune_partenza", ""))
-        partenza_lat = float(str(data.get("partenza_lat", "0")).replace(",", "."))
-        partenza_lng = float(str(data.get("partenza_lng", "0")).replace(",", "."))
-        comune_arrivo = str(data.get("comune_arrivo", ""))
-        arrivo_lat = float(str(data.get("arrivo_lat", "0")).replace(",", "."))
-        arrivo_lng = float(str(data.get("arrivo_lng", "0")).replace(",", "."))
-        capienza = int(data.get("capienza", 0))
-        attiva = 1 if data.get("attiva") in [True, "true", "1", 1] else 0
-        sabato = 1 if data.get("sabato") in [True, "true", "1", 1] else 0
-        domenica = 1 if data.get("domenica") in [True, "true", "1", 1] else 0
-        frequenza_giornaliera = int(data.get("frequenza_giornaliera", 0))
-
-        conn = get_db_connectionLinee()
-        conn.execute(
-            """UPDATE linee 
-               SET nome=?, comune_partenza=?, partenza_lat=?, partenza_lng=?, 
-                   comune_arrivo=?, arrivo_lat=?, arrivo_lng=?, capienza=?, attiva=?, 
-                   sabato=?, domenica=?, frequenza_giornaliera=? 
-               WHERE id=?""",
-            (nome, comune_partenza, partenza_lat, partenza_lng, comune_arrivo,
-             arrivo_lat, arrivo_lng, capienza, attiva, sabato, domenica, frequenza_giornaliera, int(id))
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True})
-
-    except Exception as e:
-        print("Errore in update_linea:", e, "-- dati:", data)
-        return jsonify({"error": str(e)}), 400
-
-
-# DELETE linea
-@app.route('/api/linee/<id>', methods=['DELETE'])
-def delete_linea(id):
-    conn = get_db_connectionLinee()
-    conn.execute("DELETE FROM linee WHERE id=?", (int(id),))
-    conn.commit()
-    conn.close()
-    return jsonify({"success": True})
-
-
 # ---------------- SIMULAZIONI ---------------
 
-SIMULAZIONI_DB = "databases/simulazioni.db"
-
 def get_db_connectionSimulazioni():
-    """Connessione sicura al DB delle simulazioni"""
-    conn = sqlite3.connect(SIMULAZIONI_DB)
+    conn = sqlite3.connect("databases/simulazioni.db")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -580,7 +390,6 @@ def api_simulazioni():
     # Esegui ottimizza_risorse(...)
     # Salva in simulazioni.db con commit()
 
-@app.route('/simulazioni/<sim_id>')
 @app.route('/simulazioni/<sim_id>')
 def simulazione_dettaglio(sim_id):
     conn = get_db_connectionSimulazioni()
