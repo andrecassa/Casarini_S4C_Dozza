@@ -1,13 +1,10 @@
 import sqlite3
 from flask import Blueprint, request, jsonify
 
+from utils import *
+
 api = Blueprint('api', __name__)
 
-def get_db_connectionUtenti():
-    """Ritorna una connessione aperta a utenti.db"""
-    conn = sqlite3.connect("databases/utenti.db")
-    conn.row_factory = sqlite3.Row  # permette di accedere ai campi per nome
-    return conn
 # ------------------ API LOGIN UTENTE ------------------
 @api.route('/api/login', methods=['POST'])
 def api_login():
@@ -87,11 +84,6 @@ def api_delete_utente(utente_id):
     return jsonify({'success': deleted}), (200 if deleted else 404)
 
 #------------------------PARCHEGGI API------------------------------
-
-def get_db_connectionParcheggi():
-    conn = sqlite3.connect("databases/parcheggi.db")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 # Restituisce tutti i parcheggi in JSON
 @api.route('/api/parcheggi', methods=['GET'])
@@ -174,10 +166,6 @@ def delete_parcheggio(id):
 
 
 # ---------------- LINEE BUS -----------------
-def get_db_connectionLinee():
-    conn = sqlite3.connect("databases/linee.db")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 # GET tutte le linee (JSON API)
 @api.route('/api/linee', methods=['GET'])

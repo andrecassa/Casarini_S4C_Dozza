@@ -9,6 +9,7 @@ from geopy.distance import geodesic
 
 from secret import secret_key
 from api import api  # importa il Blueprint delle API
+from utils import *
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secret_key
@@ -18,12 +19,6 @@ app.register_blueprint(api)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
-def get_db_connectionUtenti():
-    """Ritorna una connessione aperta a utenti.db"""
-    conn = sqlite3.connect("databases/utenti.db")
-    conn.row_factory = sqlite3.Row  # permette di accedere ai campi per nome
-    return conn
 
 # ------------------CLASSE USER-----------------------
 class User(UserMixin):
@@ -227,11 +222,6 @@ def mappa_dati():
 
 #---------------- PARCHEGGI -----------------
 
-def get_db_connectionParcheggi():
-    conn = sqlite3.connect("databases/parcheggi.db")
-    conn.row_factory = sqlite3.Row
-    return conn
-
 # Interfaccia per gestire i parcheggi
 @app.route('/parcheggi_page')
 @login_required
@@ -245,11 +235,6 @@ def parcheggi_redirect():
 
 
 # ---------------- LINEE BUS -----------------
-
-def get_db_connectionLinee():
-    conn = sqlite3.connect("databases/linee.db")
-    conn.row_factory = sqlite3.Row
-    return conn
 
 # Pagina principale (HTML)
 @app.route('/linee_page')
@@ -265,12 +250,6 @@ def linee_redirect():
 
 
 # ---------------- SIMULAZIONI ---------------
-
-def get_db_connectionSimulazioni():
-    conn = sqlite3.connect("databases/simulazioni.db")
-    conn.row_factory = sqlite3.Row
-    return conn
-
 
 def run_simulazione(data, n_turisti, parcheggi_esclusi_ids, linee_escluse_ids):
     """Esegue la simulazione e salva i risultati nel DB SQLite"""
@@ -440,7 +419,7 @@ def simulazioni_esporta():
         return jsonify({'status': 'error', 'message': 'ID simulazione mancante'}), 400
 
     # Connessione al DB
-    conn = sqlite3.connect("databases/simulazioni.db")
+    conn = get_db_connectionSimulazioni()
     cur = conn.cursor()
 
     cur.execute("SELECT * FROM simulazioni WHERE id = ?", (sim_id,))

@@ -1,0 +1,40 @@
+{
+    "data": "09/10/2000",
+    "linee_escluse": [],
+    "linee_utilizzate": [
+        {
+            "arrivo_lat": 44.3593817080568,
+            "arrivo_lng": 11.6288945531845,
+            "attiva": 1,
+            "capienza": 69,
+            "comune_arrivo": "Dozza",
+            "comune_partenza": "Dozza",
+            "domenica": 1,
+            "frequenza_giornaliera": 96.0,
+            "id": 79,
+            "nome": "pedonale",
+            "partenza_lat": 44.359952,
+            "partenza_lng": 11.63277,
+            "sabato": 1
+        }
+    ],
+    "n_turisti": 2,
+    "parcheggi_aperti": [
+        {
+            "attivo": 1,
+            "capienza": 55,
+            "comune": "Dozza",
+            "id": 23,
+            "latitudine": 44.359952,
+            "linee_usate": [
+                {
+                    "linea_id": 79,
+                    "turisti": 2
+                }
+            ],
+            "longitudine": 11.63277,
+            "nome": "Parcheggio Dozza"
+        }
+    ],
+    "parcheggi_esclusi": []
+}
