@@ -128,24 +128,16 @@
                         </header>
                         <div class="content">
                             <table class="sim-table">
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Turisti</th>
-                                    <th>Azioni</th>
-                                </tr>
-                                {% for sim in simulazioni %}
-                                <tr>
-                                    <td>{{ sim.data }}</td>
-                                    <td>{{ sim.n_turisti }}</td>
-                                    <td>
-                                        <a href="{{ url_for('simulazione_dettaglio', sim_id=sim.id) }}" class="button small">Dettaglio</a>
-                                        <form method="post" action="{{ url_for('elimina_simulazione', sim_id=sim.id) }}" style="display:inline;">
-                                            <button type="submit" class="button small" onclick="return confirm('Sei sicuro di voler eliminare questa simulazione?');">Elimina</button>
-                                        </form>
-                                        <button type="button" class="button small" onclick="esportaSimulazione('{{ sim.id }}')">Esporta</button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Turisti</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="simTableBody">
+                                    <!-- Verrà riempito via JS -->
+                                </tbody>
                             </table>
                         </div>
                     </section>
@@ -246,36 +238,127 @@
         }
 
         // ✅ I form "Elimina" useranno il submit classico (no JS)
+
     });
 
-        function esportaSimulazione(simId) {
-            fetch('/simulazioni/esporta', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: simId })
-            })
-            .then(response => {
-                if (!response.ok) throw new Error("Errore durante l'esportazione");
-                return response.blob(); // 📦 riceviamo il file come blob
-            })
-            .then(blob => {
+        async function eliminaSimulazione(simId) {
+            if (!confirm("Sei sicuro di voler eliminare questa simulazione?")) return;
+
+            try {
+                const resp = await fetch(`/api/simulazioni/${simId}`, {
+                    method: "DELETE"
+                });
+
+                if (!resp.ok) throw new Error("Errore durante l'eliminazione");
+
+                alert("✅ Simulazione eliminata con successo!");
+                window.location.reload(); // aggiorna la pagina
+
+            } catch (err) {
+                console.error("Errore eliminazione:", err);
+                alert("❌ Errore durante l'eliminazione della simulazione.");
+            }
+        }
+
+        async function esportaSimulazione(simId) {
+            try {
+                const response = await fetch("/api/simulazioni/esporta", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: simId })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    alert("❌ Errore durante l'esportazione: " + (err.message || response.statusText));
+                    return;
+                }
+
+                // ✅ Scarica il file come blob
+                const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
+                const a = document.createElement("a");
                 a.href = url;
                 a.download = `simulazione_${simId}.json`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 window.URL.revokeObjectURL(url);
-            })
-            .catch(err => {
-                console.error("Errore esportazione:", err);
+            } catch (error) {
+                console.error("Errore esportazione:", error);
                 alert("❌ Errore durante l'esportazione della simulazione.");
-            });
+            }
         }
 
     </script>
 
+    <script>
+    $(document).ready(async function () {
+        // Inizializza Select2
+        $('.select2').select2({
+            width: '100%',
+            placeholder: "Seleziona...",
+            allowClear: true
+        });
+
+        // ✅ Carica dati simulazioni/parcheggi/linee
+        try {
+            const resp = await fetch("/api/simulazioni");
+            if (!resp.ok) throw new Error("Errore caricamento simulazioni");
+            const data = await resp.json();
+
+            // --- Popola tabella simulazioni ---
+            const tbody = document.getElementById("simTableBody");
+            tbody.innerHTML = "";
+            data.simulazioni.forEach(sim => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${sim.data}</td>
+                    <td>${sim.n_turisti}</td>
+                    <td>
+                        <a href="/simulazioni/${sim.id}" class="button small">Dettaglio</a>
+                        <form method="post" action="/simulazioni/${sim.id}/elimina" style="display:inline;">
+                            <button type="button" class="button small" onclick="eliminaSimulazione('${sim.id}')">Elimina</button>
+                        </form>
+                        <button type="button" class="button small" onclick="esportaSimulazione('${sim.id}')">Esporta</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // --- Popola select parcheggi ---
+            const parcheggiSelect = document.querySelector("select[name='parcheggi_esclusi[]']");
+            parcheggiSelect.innerHTML = "";
+            data.parcheggi.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p.id;
+                opt.textContent = `${p.nome} | ${p.comune}`;
+                parcheggiSelect.appendChild(opt);
+            });
+
+            // --- Popola select linee ---
+            const lineeSelect = document.querySelector("select[name='linee_escluse[]']");
+            lineeSelect.innerHTML = "";
+            data.linee.forEach(l => {
+                const opt = document.createElement("option");
+                opt.value = l.id;
+                opt.textContent = `${l.nome} | ${l.comune_partenza}`;
+                lineeSelect.appendChild(opt);
+            });
+
+            // Reinizializza Select2 dopo aver caricato le opzioni
+            $('.select2').trigger('change.select2');
+
+        } catch (err) {
+            console.error("Errore caricamento simulazioni:", err);
+            alert("❌ Errore nel caricamento dei dati delle simulazioni.");
+        }
+
+        // --- Collega il form di simulazione ---
+        const simForm = document.getElementById("simForm");
+        if (simForm) simForm.addEventListener("submit", avviaSimulazione);
+    });
+    </script>
 </body>
 
 </html>

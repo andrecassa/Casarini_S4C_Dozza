@@ -1,0 +1,141 @@
+{
+    "data": "09/10/2200",
+    "linee_escluse": [
+        {
+            "arrivo_lat": 44.3593817080568,
+            "arrivo_lng": 11.6288945531845,
+            "attiva": 1,
+            "capienza": 69,
+            "comune_arrivo": "Dozza",
+            "comune_partenza": "Castel San Pietro Terme",
+            "domenica": 1,
+            "frequenza_giornaliera": 24.0,
+            "id": 11,
+            "nome": "101",
+            "partenza_lat": 44.3935288979358,
+            "partenza_lng": 11.5800646716751,
+            "sabato": 1
+        }
+    ],
+    "linee_utilizzate": [
+        {
+            "arrivo_lat": 44.3593817080568,
+            "arrivo_lng": 11.6288945531845,
+            "attiva": 1,
+            "capienza": 69,
+            "comune_arrivo": "Dozza",
+            "comune_partenza": "Dozza",
+            "domenica": 1,
+            "frequenza_giornaliera": 8.5,
+            "id": 50,
+            "nome": "147",
+            "partenza_lat": 44.38435,
+            "partenza_lng": 11.63625,
+            "sabato": 1
+        },
+        {
+            "arrivo_lat": 44.3593817080568,
+            "arrivo_lng": 11.6288945531845,
+            "attiva": 1,
+            "capienza": 69,
+            "comune_arrivo": "Dozza",
+            "comune_partenza": "Imola",
+            "domenica": 1,
+            "frequenza_giornaliera": 24.0,
+            "id": 51,
+            "nome": "101",
+            "partenza_lat": 44.35315,
+            "partenza_lng": 11.70425,
+            "sabato": 1
+        },
+        {
+            "arrivo_lat": 44.3593817080568,
+            "arrivo_lng": 11.6288945531845,
+            "attiva": 1,
+            "capienza": 69,
+            "comune_arrivo": "Dozza",
+            "comune_partenza": "Dozza",
+            "domenica": 1,
+            "frequenza_giornaliera": 96.0,
+            "id": 79,
+            "nome": "pedonale",
+            "partenza_lat": 44.359952,
+            "partenza_lng": 11.63277,
+            "sabato": 1
+        }
+    ],
+    "n_turisti": 400,
+    "parcheggi_aperti": [
+        {
+            "attivo": 1,
+            "capienza": 55,
+            "comune": "Dozza",
+            "id": 23,
+            "latitudine": 44.359952,
+            "linee_usate": [
+                {
+                    "linea_id": 79,
+                    "turisti": 55
+                }
+            ],
+            "longitudine": 11.63277,
+            "nome": "Parcheggio Dozza"
+        },
+        {
+            "attivo": 1,
+            "capienza": 97,
+            "comune": "Dozza",
+            "id": 24,
+            "latitudine": 44.35887,
+            "linee_usate": [
+                {
+                    "linea_id": 79,
+                    "turisti": 97
+                }
+            ],
+            "longitudine": 11.6243,
+            "nome": "Bus parking Dozza"
+        },
+        {
+            "attivo": 1,
+            "capienza": 53,
+            "comune": "Dozza",
+            "id": 12,
+            "latitudine": 44.3837505539671,
+            "linee_usate": [
+                {
+                    "linea_id": 50,
+                    "turisti": 53
+                }
+            ],
+            "longitudine": 11.636096873159,
+            "nome": "Parcheggio Toscanella Piazza Gramsci"
+        },
+        {
+            "attivo": 1,
+            "capienza": 352,
+            "comune": "Imola",
+            "id": 13,
+            "latitudine": 44.35315,
+            "linee_usate": [
+                {
+                    "linea_id": 51,
+                    "turisti": 195
+                }
+            ],
+            "longitudine": 11.70425,
+            "nome": "Parcheggio gratuito Imola"
+        }
+    ],
+    "parcheggi_esclusi": [
+        {
+            "attivo": 1,
+            "capienza": 45,
+            "comune": "Castel San Pietro Terme",
+            "id": 9,
+            "latitudine": 44.401116,
+            "longitudine": 11.593608,
+            "nome": "Parcheggio"
+        }
+    ]
+}

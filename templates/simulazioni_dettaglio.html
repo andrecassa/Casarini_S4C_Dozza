@@ -69,7 +69,7 @@
                                 <h3>Parcheggi da Aprire</h3>
                                 <ul>
                                     {% for p in simulazione.parcheggi %}
-                                        <li>{{ p.nome }} ({{ p.comune }})</li>
+                                        <li>{{ p.nome }} ({{ p.comune }}) — Capienza: {{ p.capienza }}</li>
                                     {% endfor %}
                                 </ul>
 

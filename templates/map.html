@@ -94,7 +94,7 @@
             }).addTo(map);
 
             // Chiamata al backend per ottenere dati JSON
-            $.getJSON('{{ url_for("mappa_dati") }}')
+            $.getJSON('{{ url_for("api.mappa_dati") }}')
                 .done(function (data) {
                     // Centra mappa sulla prima coordinata di parcheggio o punto medio
                     if (data.parcheggi.length > 0) {
