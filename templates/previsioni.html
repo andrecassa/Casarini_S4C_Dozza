@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Previsioni</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <style>
+        .sim-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .sim-table th, .sim-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .sim-table th {
+            background: #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .form-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .form-container form {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .form-container input[type="number"],
+        .form-container select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #bbb;
+            border-radius: 5px;
+            font-size: 1em;
+            background: #fafbfc;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            min-height: 40px;
+        }
+
+        .form-container input:focus,
+        .form-container select:focus {
+            border: 1.5px solid #2d89ef;
+            outline: none;
+            background: #fff;
+        }
+
+        #results {
+            margin-top: 40px;
+        }
+    </style>
+</head>
+
+<body class="is-preload">
+
+<!-- Header -->
+<header id="header">
+    <div class="inner">
+        <a href="{{ url_for('mappa_page') }}" class="image dozza">
+            <img src="{{ url_for('static', filename='images/thumbs/dozza.jpg') }}" width="100%" alt="" />
+        </a>
+        <h1 style="font-size: 3em"><strong>Dozza Tourism</strong></h1>
+        <p>Applicazione del Comune di Dozza per la gestione e la previsione dei flussi turistici.</p>
+    </div>
+</header>
+
+<!-- Main -->
+<div id="main">
+
+    <!-- Sezione Previsioni -->
+    <section id="previsioni">
+        <header>
+            <h2>📅 Previsioni mensili</h2>
+            <p>Inserisci il mese e l’anno per ottenere la previsione giornaliera dei turisti a Dozza.</p>
+        </header>
+
+        <div class="form-container">
+            <form id="prevForm">
+                <div class="form-group">
+                    <label>Anno</label>
+                    <input type="number" id="anno" name="anno" required min="2024" max="2030" value="2025">
+                </div>
+
+                <div class="form-group">
+                    <label>Mese</label>
+                    <select id="mese" name="mese" required>
+                        <option value="">Seleziona mese...</option>
+                        {% for i in range(1,13) %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-buttons">
+                    <button type="submit" class="button">Genera previsioni</button>
+                    <a href="{{ url_for('mappa_page') }}" class="button">Torna alla mappa</a>
+                </div>
+            </form>
+        </div>
+
+        <div id="results">
+            <h3>Risultati</h3>
+            <table class="sim-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Turisti previsti</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                    <!-- Righe generate via JS -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<!-- Script -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+async function generaPrevisioni(e) {
+    e.preventDefault();
+
+    const anno = document.getElementById("anno").value;
+    const mese = document.getElementById("mese").value;
+
+    if (!anno || !mese) {
+        alert("⚠️ Compila tutti i campi prima di procedere.");
+        return;
+    }
+
+    try {
+        const resp = await fetch("/api/predizioni", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ anno: parseInt(anno), mese: parseInt(mese) })
+        });
+
+        if (!resp.ok) throw new Error("Errore API: " + resp.status);
+
+        const data = await resp.json();
+        const tbody = document.getElementById("resultsBody");
+        tbody.innerHTML = "";
+
+        if (!data.previsioni || data.previsioni.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='2'>Nessun dato disponibile.</td></tr>";
+            return;
+        }
+
+        data.previsioni.forEach(p => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${p.data}</td><td>${p.turisti ? p.turisti.toFixed(2) : "—"}</td>`;
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error("Errore:", err);
+        alert("❌ Errore durante la generazione delle previsioni.");
+    }
+}
+
+document.getElementById("prevForm").addEventListener("submit", generaPrevisioni);
+</script>
+
+</body>
+</html>

@@ -15,7 +15,6 @@ from api import load_parcheggi, load_linee
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
 # ------------------CLASSE USER-----------------------
 class User(UserMixin):
     def __init__(self, id, email, ruolo):
@@ -199,6 +198,30 @@ def simulazione_dettaglio(sim_id):
         data = response.get_json()
 
     return render_template("simulazioni_dettaglio.html", simulazione=data)
+
+
+# ---------------- PREVISIONE ---------------
+
+@app.route("/previsioni")
+@login_required
+def previsioni_page():
+    """Pagina HTML per visualizzare le previsioni turistiche."""
+    return render_template("previsioni.html")
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=True)
+
+
+def previsione_mese(anno=2025, mese=7):
+    """
+    Esegue la chiamata all'endpoint /api/predizioni per Dozza intera.
+    (Usata per test o per generare i dati da backend)
+    """
+    client = app.test_client()
+    response = client.post("/api/predizioni", json={"anno": anno, "mese": mese})
+    print(response.json)
+    return response.json
+
 
 
 # Run the Flask app on port 8080

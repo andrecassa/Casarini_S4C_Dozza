@@ -1,7 +1,6 @@
 import os
-from datetime import datetime
-import sqlite3
 import uuid
+import joblib
 
 from flask import Blueprint, request, jsonify, json, send_file
 from geopy.distance import geodesic
@@ -9,6 +8,7 @@ from geopy.distance import geodesic
 from utils import *
 
 api = Blueprint('api', __name__)
+
 
 #------------------------MAPPA API------------------------------
 @api.route('/api/mappa/dati', methods=['GET'])
@@ -245,7 +245,7 @@ def delete_linea(id):
 
 # ---------------- SIMULAZIONI ---------------
 
-#GET simulazioni
+# GET simulazioni
 @api.route('/api/simulazioni', methods=['GET'])
 def get_simulazioni():
     # --- Carica tutte le simulazioni ---
@@ -264,7 +264,7 @@ def get_simulazioni():
         "linee": linee
     })
 
-# 🔹 ELIMINA simulazione
+# DELETE simulazione
 @api.route('/api/simulazioni/<sim_id>', methods=['DELETE'])
 def delete_simulazione(sim_id):
     try:
@@ -284,6 +284,7 @@ def delete_simulazione(sim_id):
         print("Errore in delete_simulazione:", e)
         return jsonify({"error": str(e)}), 500
 
+# GET singola simulazione
 @api.route('/api/simulazioni/<sim_id>', methods=['GET'])
 def get_simulazione_dettaglio(sim_id):
     try:
@@ -378,6 +379,7 @@ def esporta_simulazione():
         print("❌ Errore in /api/simulazioni/esporta:", e)
         return jsonify({'error': str(e)}), 500
 
+# esegui la simulazione
 @api.route('/api/sim', methods=['POST'])
 def api_simulazione():
     try:
@@ -547,5 +549,90 @@ def to_float(val):
         return float(str(val).replace(',', '.'))
     except:
         return 0.0
+
+# ---------------- PREVISIONE  ----------------
+
+from flask import Blueprint, jsonify, request
+import joblib
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+import os
+
+# === Caricamento modelli ===
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FILES_DIR = os.path.join(BASE_DIR, "previsioni_files")
+
+try:
+    model = joblib.load(os.path.join(FILES_DIR, "mobility_model.pkl"))
+    scaler = joblib.load(os.path.join(FILES_DIR, "scaler.pkl"))
+    label_encoder = joblib.load(os.path.join(FILES_DIR, "label_encoder.pkl"))
+    print("✅ Modello di previsione caricato correttamente.")
+except Exception as e:
+    print("❌ Errore nel caricamento dei file di previsione:", e)
+    model = scaler = label_encoder = None
+
+
+@api.route('/api/predizioni', methods=['POST'])
+def api_predizioni():
+    """
+    Genera previsioni di afflusso turistico per Dozza (intera area)
+    per ogni giorno del mese richiesto.
+    """
+    if model is None or scaler is None or label_encoder is None:
+        return jsonify({"error": "Modelli non caricati"}), 500
+
+    data = request.json
+    if not data:
+        return jsonify({"error": "Nessun dato fornito"}), 400
+
+    try:
+        mese = int(data.get("mese"))
+        anno = int(data.get("anno"))
+
+        # Layerid fisso (es. primo disponibile)
+        layerid = label_encoder.classes_[0]
+
+        start_date = datetime(anno, mese, 1)
+        next_month = datetime(anno + (mese // 12), (mese % 12) + 1, 1)
+        num_days = (next_month - start_date).days
+
+        predictions = []
+
+        for i in range(num_days):
+            giorno = start_date + timedelta(days=i)
+            weekday = giorno.weekday()
+            week = giorno.isocalendar().week - 35
+            weekend = 1 if weekday in [5, 6] else 0
+            date_int = int(giorno.timestamp() * 1e9)
+            encoded_layerid = label_encoder.transform([layerid])[0]
+
+            X = pd.DataFrame([{
+                "date": date_int,
+                "layerid": encoded_layerid,
+                "weekday": weekday,
+                "week": week,
+                "weekend": weekend
+            }])
+
+            X_scaled = scaler.transform(X)
+            y_log_pred = model.predict(X_scaled)
+            y_pred = np.expm1(y_log_pred)
+
+            predictions.append({
+                "data": giorno.strftime("%Y-%m-%d"),
+                "turisti": float(y_pred[0])
+            })
+
+        return jsonify({
+            "anno": anno,
+            "mese": mese,
+            "previsioni": predictions
+        })
+
+    except Exception as e:
+        print("❌ Errore durante la previsione:", e)
+        return jsonify({"error": str(e)}), 500
+
 
 
