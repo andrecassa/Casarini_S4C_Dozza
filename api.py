@@ -9,7 +9,6 @@ from utils import *
 
 api = Blueprint('api', __name__)
 
-
 #------------------------MAPPA API------------------------------
 @api.route('/api/mappa/dati', methods=['GET'])
 def mappa_dati():
@@ -567,9 +566,9 @@ try:
     model = joblib.load(os.path.join(FILES_DIR, "mobility_model.pkl"))
     scaler = joblib.load(os.path.join(FILES_DIR, "scaler.pkl"))
     label_encoder = joblib.load(os.path.join(FILES_DIR, "label_encoder.pkl"))
-    print("✅ Modello di previsione caricato correttamente.")
+    print("Modello di previsione caricato correttamente.")
 except Exception as e:
-    print("❌ Errore nel caricamento dei file di previsione:", e)
+    print("Errore nel caricamento dei file di previsione:", e)
     model = scaler = label_encoder = None
 
 

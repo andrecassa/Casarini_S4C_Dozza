@@ -6,6 +6,7 @@
     <title>Previsioni</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/main.css') }}">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         .sim-table {
@@ -73,6 +74,14 @@
         #results {
             margin-top: 40px;
         }
+
+        #chartPrevisioni {
+            width: 100%;
+            max-width: 800px;
+            height: 300px;
+            margin: 20px auto;
+            display: block;
+        }
     </style>
 </head>
 
@@ -95,7 +104,7 @@
     <!-- Sezione Previsioni -->
     <section id="previsioni">
         <header>
-            <h2>📅 Previsioni mensili</h2>
+            <h2>Previsioni mensili</h2>
             <p>Inserisci il mese e l’anno per ottenere la previsione giornaliera dei turisti a Dozza.</p>
         </header>
 
@@ -125,6 +134,11 @@
 
         <div id="results">
             <h3>Risultati</h3>
+
+            <!-- Grafico -->
+            <canvas id="chartPrevisioni"></canvas>
+
+            <!-- Tabella -->
             <table class="sim-table">
                 <thead>
                     <tr>
@@ -142,8 +156,9 @@
 
 <!-- Script -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
 <script>
+let chart = null;
+
 async function generaPrevisioni(e) {
     e.preventDefault();
 
@@ -151,7 +166,7 @@ async function generaPrevisioni(e) {
     const mese = document.getElementById("mese").value;
 
     if (!anno || !mese) {
-        alert("⚠️ Compila tutti i campi prima di procedere.");
+        alert("Compila tutti i campi prima di procedere.");
         return;
     }
 
@@ -165,23 +180,74 @@ async function generaPrevisioni(e) {
         if (!resp.ok) throw new Error("Errore API: " + resp.status);
 
         const data = await resp.json();
+        const previsioni = data.previsioni || [];
+
         const tbody = document.getElementById("resultsBody");
         tbody.innerHTML = "";
 
-        if (!data.previsioni || data.previsioni.length === 0) {
+        if (previsioni.length === 0) {
             tbody.innerHTML = "<tr><td colspan='2'>Nessun dato disponibile.</td></tr>";
             return;
         }
 
-        data.previsioni.forEach(p => {
+        // Popola la tabella
+        previsioni.forEach(p => {
             const tr = document.createElement("tr");
             tr.innerHTML = `<td>${p.data}</td><td>${p.turisti ? p.turisti.toFixed(2) : "—"}</td>`;
             tbody.appendChild(tr);
         });
 
+        // Prepara dati per il grafico
+        const labels = previsioni.map(p => p.data);
+        const valori = previsioni.map(p => p.turisti);
+
+        // Distrugge il grafico precedente se esiste
+        if (chart) chart.destroy();
+
+        // Crea nuovo grafico a linea
+        const ctx = document.getElementById("chartPrevisioni").getContext("2d");
+        chart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Turisti previsti",
+                    data: valori,
+                    borderColor: "#2d89ef",
+                    backgroundColor: "rgba(45,137,239,0.1)",
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3,
+                    pointBackgroundColor: "#2d89ef"
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: `Previsioni turistiche - ${data.mese}/${data.anno}`,
+                        font: { size: 18 }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxRotation: 90, minRotation: 45 },
+                        title: { display: true, text: "Data" }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: "Numero di turisti" }
+                    }
+                }
+            }
+        });
+
     } catch (err) {
         console.error("Errore:", err);
-        alert("❌ Errore durante la generazione delle previsioni.");
+        alert("Errore durante la generazione delle previsioni.");
     }
 }
 
