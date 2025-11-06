@@ -552,7 +552,6 @@ def to_float(val):
 # ---------------- PREVISIONE  ----------------
 
 from flask import Blueprint, jsonify, request
-import joblib
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
