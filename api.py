@@ -565,7 +565,7 @@ try:
     model = joblib.load(os.path.join(FILES_DIR, "mobility_model.pkl"))
     scaler = joblib.load(os.path.join(FILES_DIR, "scaler.pkl"))
     label_encoder = joblib.load(os.path.join(FILES_DIR, "label_encoder.pkl"))
-    print("Modello di previsione caricato correttamente.")
+    #print("Modello di previsione caricato correttamente.")
 except Exception as e:
     print("Errore nel caricamento dei file di previsione:", e)
     model = scaler = label_encoder = None
@@ -575,7 +575,7 @@ except Exception as e:
 def api_predizioni():
     """
     Genera previsioni di afflusso turistico per Dozza (intera area)
-    per ogni giorno del mese richiesto.
+    considerando tutti i layer associati al comune (08|034|...).
     """
     if model is None or scaler is None or label_encoder is None:
         return jsonify({"error": "Modelli non caricati"}), 500
@@ -588,38 +588,50 @@ def api_predizioni():
         mese = int(data.get("mese"))
         anno = int(data.get("anno"))
 
-        # Layerid fisso (es. primo disponibile)
-        layerid = label_encoder.classes_[0]
+        # 🔹 Seleziona solo i layerid che appartengono a Dozza
+        dozza_layerids = [lid for lid in label_encoder.classes_ if lid.startswith("08|037|025")]
 
+        if not dozza_layerids:
+            return jsonify({"error": "Nessun layer trovato per Dozza"}), 404
+
+        # 🔹 Calcola le date del mese richiesto
         start_date = datetime(anno, mese, 1)
         next_month = datetime(anno + (mese // 12), (mese % 12) + 1, 1)
         num_days = (next_month - start_date).days
 
         predictions = []
-
+        # 🔹 Per ogni giorno del mese
         for i in range(num_days):
             giorno = start_date + timedelta(days=i)
             weekday = giorno.weekday()
             week = giorno.isocalendar().week - 35
             weekend = 1 if weekday in [5, 6] else 0
             date_int = int(giorno.timestamp() * 1e9)
-            encoded_layerid = label_encoder.transform([layerid])[0]
 
-            X = pd.DataFrame([{
-                "date": date_int,
-                "layerid": encoded_layerid,
-                "weekday": weekday,
-                "week": week,
-                "weekend": weekend
-            }])
+            preds_day = []
+            # 🔹 Predici per ogni layer di Dozza
+            for lid in dozza_layerids:
+                encoded_layerid = label_encoder.transform([lid])[0]
+                X = pd.DataFrame([{
+                    "date": date_int,
+                    "layerid": encoded_layerid,
+                    "weekday": weekday,
+                    "week": week,
+                    "weekend": weekend
+                }])
 
-            X_scaled = scaler.transform(X)
-            y_log_pred = model.predict(X_scaled)
-            y_pred = np.expm1(y_log_pred)
-
+                X_scaled = scaler.transform(X)
+                y_log_pred = model.predict(X_scaled)
+                y_pred = np.expm1(y_log_pred)
+                preds_day.append(y_pred[0])
+            # 🔹 Calcola la media (in questo caso non necessaria perchè dozza ha solo un layerid)
+            mean_pred = float(np.mean(preds_day))
+            print(dozza_layerids)
+            #print(preds_day, "preds day")
+            print(mean_pred)
             predictions.append({
                 "data": giorno.strftime("%Y-%m-%d"),
-                "turisti": float(y_pred[0])
+                "turisti": mean_pred
             })
 
         return jsonify({
