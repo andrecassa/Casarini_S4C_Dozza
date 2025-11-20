@@ -549,7 +549,7 @@ def to_float(val):
     except:
         return 0.0
 
-# ---------------- PREVISIONE  ----------------
+# ---------------- PREDIZIONE  ----------------
 
 from flask import Blueprint, jsonify, request
 import pandas as pd
